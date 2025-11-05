@@ -1,7 +1,8 @@
+version: "2"
+
 run:
   timeout: 5m
   concurrency: 8
-
 linters:
   enable:
     - asasalint
@@ -15,7 +16,6 @@ linters:
     - dogsled
     - dupl
     - durationcheck
-    - errcheck
     - errchkjson
     - errname
     - errorlint
@@ -25,19 +25,14 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - godot
     - godox
-    - gofmt
     - goheader
     - gomoddirectives
     - gomodguard
     - goprintffuncname
     - gosec
-    - gosimple
-    - govet
     - grouper
     - importas
-    - ineffassign
     - interfacebloat
     - loggercheck
     - maintidx
@@ -53,13 +48,15 @@ linters:
     - predeclared
     - promlinter
     - reassign
-    - staticcheck
-    - tenv
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
-    - unused
     - usestdlibvars
     - whitespace
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
