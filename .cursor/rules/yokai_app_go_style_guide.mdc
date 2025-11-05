@@ -1,0 +1,382 @@
+---
+description: Development guidelines from yokai_app/go_style_guide
+globs: ["**/*"]
+alwaysApply: true
+---
+# Go Style Guide
+
+This document outlines the Go styling rules and conventions for this project, derived from best practices and lessons learned during development.
+
+## Table of Contents
+1. [Type Declarations](#type-declarations)
+2. [Separation of Concerns](#separation-of-concerns)
+3. [Logging Standards](#logging-standards)
+4. [Error Handling](#error-handling)
+5. [Interface Design](#interface-design)
+6. [Clean Architecture](#clean-architecture)
+7. [Testing](#testing)
+8. [Comments and Documentation](#comments-and-documentation)
+
+## Type Declarations
+
+### Modern Type Syntax
+**✅ Do:** Use modern Go type aliases
+```go
+// Preferred - Modern Go style
+map[string]any
+[]map[string]any
+map[string]map[string]any
+```
+
+**❌ Don't:** Use legacy interface{} syntax
+```go
+// Deprecated style
+map[string]interface{}
+[]map[string]interface{}
+map[string]map[string]interface{}
+```
+
+### Specific vs Generic Types
+**✅ Do:** Use specific types when the structure is known at compile time
+```go
+// For structured data with known fields
+type SearchRequest struct {
+    Query string `json:"query"`
+    Index string `json:"index"`
+}
+```
+
+**✅ Do:** Use generic maps for dynamic/external data
+```go
+// For raw API responses or dynamic content
+func ProcessESResponse(rawResult map[string]any) error {
+    // Transform dynamic ES response to structured domain models
+}
+```
+
+**✅ Do:** Use string maps when values are homogeneous
+```go
+// When all values are strings
+header := map[string]string{
+    "Content-Type": "application/json",
+    "index": indexName,
+}
+```
+
+## Separation of Concerns
+
+### Layered Architecture Responsibilities
+
+#### Handler Layer (HTTP/Transport)
+**✅ Do:** Focus only on HTTP concerns
+```go
+func (h *Handler) Handle() echo.HandlerFunc {
+    return func(c echo.Context) error {
+        // Parse request
+        var body RequestBody
+        if err := c.Bind(&body); err != nil {
+            return fmt.Errorf("invalid request: %w", err)
+        }
+
+        // Call service
+        result, err := h.service.Process(ctx, body)
+        if err != nil {
+            return fmt.Errorf("processing failed: %w", err)
+        }
+
+        // Return response
+        return c.JSON(http.StatusOK, result)
+    }
+}
+```
+
+**❌ Don't:** Include business logic or detailed metrics
+```go
+// BAD - Business logic in handler
+func (h *Handler) Handle() echo.HandlerFunc {
+    return func(c echo.Context) error {
+        startTime := time.Now() // ❌ Metrics belong in service
+
+        // ❌ Business validation logic
+        if body.Query == "" || len(body.Query) < 3 {
+            return errors.New("query too short")
+        }
+
+        // ❌ Complex processing
+        processedData := complexBusinessLogic(body)
+
+        processingTime := time.Since(startTime).Milliseconds() // ❌ Service concern
+        logger.Info().Int64("processingMs", processingTime)    // ❌ Service logging
+    }
+}
+```
+
+#### Service Layer (Business Logic)
+**✅ Do:** Handle business logic, validation, and metrics
+```go
+func (s *Service) Process(ctx context.Context, params Params) (*Result, error) {
+    logger := log.CtxLogger(ctx)
+    startTime := time.Now()
+
+    // Business validation
+    if err := s.validateParams(params); err != nil {
+        return nil, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+    }
+
+    // Business logic
+    result, err := s.executeBusinessLogic(ctx, params)
+    if err != nil {
+        logger.Error().Err(err).Msg("business operation failed")
+        return nil, fmt.Errorf("%w: %w", ErrProcessingFailed, err)
+    }
+
+    // Business metrics
+    logger.Info().
+        Dur("duration", time.Since(startTime)).
+        Int("itemsProcessed", len(result.Items)).
+        Msg("processing completed successfully")
+
+    return result, nil
+}
+```
+
+#### Repository Layer (Infrastructure)
+**✅ Do:** Keep infrastructure concerns pure and generic
+```go
+type Repository interface {
+    // Generic types for infrastructure flexibility
+    ExecuteQuery(ctx context.Context, query string) (map[string]any, error)
+    ExecuteBatch(ctx context.Context, queries []string) ([]map[string]any, error)
+}
+```
+
+### Metrics and Timing
+**✅ Do:** Place timing in the service layer where business logic executes
+**❌ Don't:** Time HTTP request/response overhead in handlers
+
+## Logging Standards
+
+### Field Naming
+**✅ Do:** Use camelCase for structured logging fields
+```go
+logger.Info().
+    Str("userId", user.ID).
+    Str("accountType", user.Type).
+    Int("requestCount", len(requests)).
+    Dur("duration", elapsed).
+    Msg("operation completed")
+```
+
+**❌ Don't:** Use snake_case
+```go
+logger.Info().
+    Str("user_id", user.ID).        // ❌ Wrong case
+    Str("account_type", user.Type). // ❌ Wrong case
+    Msg("Operation completed.")     // ❌ Capitalized/punctuation
+```
+
+### Message Format
+**✅ Do:** Use lowercase messages without punctuation
+```go
+logger.Info().Msg("search completed successfully")
+logger.Error().Err(err).Msg("failed to process request")
+logger.Debug().Msg("validation passed")
+```
+
+**❌ Don't:** Use capitalized messages or punctuation
+```go
+logger.Info().Msg("Search completed successfully.") // ❌ Capital + period
+logger.Error().Msg("Failed to process request!")    // ❌ Capital + exclamation
+```
+
+### Logging Levels by Layer
+**✅ Handler Layer:** Use `Debug` for HTTP completion
+```go
+logger.Debug().
+    Int("requestCount", len(body.Requests)).
+    Msg("http request completed")
+```
+
+**✅ Service Layer:** Use `Info` for business operations
+```go
+logger.Info().
+    Dur("duration", time.Since(startTime)).
+    Int("results", len(results)).
+    Msg("search operation completed")
+```
+
+**✅ Error Logging:** Always include context
+```go
+logger.Error().
+    Err(err).
+    Str("operation", "search").
+    Str("index", indexName).
+    Msg("operation failed")
+```
+
+## Error Handling
+
+### Domain Errors
+**✅ Do:** Define domain-specific errors
+```go
+var (
+    ErrInvalidRequest    = errors.New("invalid request")
+    ErrSearchFailed      = errors.New("search operation failed")
+    ErrConnectionFailed  = errors.New("connection failed")
+)
+```
+
+**✅ Do:** Wrap errors with context
+```go
+if err != nil {
+    return fmt.Errorf("%w: failed to validate index %s", ErrInvalidRequest, indexName)
+}
+```
+
+### Error Propagation
+**✅ Do:** Maintain error context across layers
+```go
+// Service layer
+if err := s.repository.Execute(ctx, query); err != nil {
+    return fmt.Errorf("%w: repository operation failed: %w", ErrSearchFailed, err)
+}
+
+// Handler layer
+if err := s.service.Search(ctx, params); err != nil {
+    logger.Error().Err(err).Msg("service call failed")
+    return fmt.Errorf("search failed: %w", err)
+}
+```
+
+## Interface Design
+
+### Repository Patterns
+**✅ Do:** Keep repository interfaces generic for infrastructure flexibility
+```go
+type Repository interface {
+    ExecuteSearch(ctx context.Context, index, query string) (map[string]any, error)
+    ExecuteBatch(ctx context.Context, queries []string) ([]map[string]any, error)
+    Health(ctx context.Context) error
+}
+```
+
+**✅ Do:** Transform raw responses in dedicated factories
+```go
+type ResponseFactory interface {
+    FromESResult(raw map[string]any, request *Request) (*Response, error)
+    FromESMultiResult(raw map[string]any, requests []*Request) ([]*Response, error)
+}
+```
+
+### Interface Placement
+**✅ Do:** Define interfaces in the domain layer
+```go
+// internal/domain/search/repository.go
+type Repository interface {
+    // Methods defined where they're used, not where they're implemented
+}
+```
+
+## Clean Architecture
+
+### Dependency Direction
+**✅ Do:** Dependencies point inward toward the domain
+```
+Handler → Service → Repository (interface in domain)
+   ↓        ↓           ↑
+Infrastructure implements domain interfaces
+```
+
+### Layer Responsibilities
+- **Domain:** Business logic, interfaces, models, validation rules
+- **Infrastructure:** External service implementations, database access
+- **Handlers:** HTTP/transport concerns only
+- **Middleware:** Cross-cutting concerns (auth, logging, metrics)
+
+### Data Flow
+**✅ Do:** Transform data at layer boundaries
+```go
+// Handler: HTTP → Service types
+serviceParams := ServiceParams{
+    Requests: body.Requests,
+    Country:  countryCode,
+}
+
+// Service: Service types → Domain models → Repository calls
+domainRequests := s.factory.FromRaw(serviceParams.Requests)
+rawResults := s.repository.Execute(ctx, query)
+
+// Factory: Raw results → Domain models
+responses := s.responseFactory.FromRaw(rawResults, domainRequests)
+```
+
+## Testing
+
+### Test Organization
+**✅ Do:** Organize test helpers in separate packages
+```go
+// internal/middleware/middlewaretest/helpers.go
+package middlewaretest
+
+func CreateTestJWT(payload UserPayload) string { /* */ }
+func CreateUserPayload(userID, accountType string) UserPayload { /* */ }
+```
+
+### Test Data
+**✅ Do:** Use flexible maps for test data construction
+```go
+rawResponse := map[string]any{
+    "hits": map[string]any{
+        "total": 100,
+        "hits": []any{
+            map[string]any{"_source": map[string]any{"id": 1}},
+        },
+    },
+}
+```
+
+## Comments and Documentation
+
+### Package Documentation
+**✅ Do:** Document package purpose and key concepts
+```go
+// Package algolia provides Algolia-compatible search functionality
+// backed by Elasticsearch, following Clean Architecture principles.
+package algolia
+```
+
+### Function Comments
+**✅ Do:** Comment exported functions with their purpose
+```go
+// BuildSearchQuery builds a complete ES search query from a SearchRequest.
+// It applies business rules for query construction, filtering, and pagination.
+func (qb *QueryBuilder) BuildSearchQuery(request *SearchRequest) (map[string]any, error) {
+```
+
+**✅ Do:** End comments with periods
+```go
+// NewService creates a new search service with required dependencies.
+```
+
+### TODO/PLACEHOLDER Comments
+**✅ Do:** Use PLACEHOLDER for temporary implementations
+```go
+// PLACEHOLDER: Replace with actual field mapping from configuration
+searchableFields := []string{"title", "description"}
+```
+
+**❌ Don't:** Use TODO comments (use PLACEHOLDER instead per project standards)
+
+---
+
+## Summary
+
+This style guide emphasizes:
+- **Modern Go syntax** (`map[string]any`)
+- **Clear separation of concerns** across architectural layers
+- **Consistent logging** with camelCase fields and lowercase messages
+- **Proper error handling** with domain-specific errors
+- **Clean architecture principles** with appropriate responsibilities
+- **Flexible interfaces** that separate infrastructure from domain logic
+
+Following these rules ensures maintainable, testable, and idiomatic Go code that aligns with the project's clean architecture approach.

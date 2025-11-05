@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ankor-docs": {
+      "command": "ankor-mcp-server",
+      "args": []
+    }
+  }
+}

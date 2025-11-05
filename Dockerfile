@@ -18,4 +18,8 @@ WORKDIR /
 COPY --from=build /src/configs /configs
 COPY --from=build /app /app
 
+# Expose ports: useless?
+# EXPOSE 8080 8081
+
 ENTRYPOINT ["/app"]
+CMD ["run"]

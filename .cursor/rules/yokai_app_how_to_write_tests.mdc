@@ -1,0 +1,1426 @@
+---
+alwaysApply: false
+---
+# Yokai Application Testing Strategy
+
+## Overview
+
+This document defines the standard testing patterns for Yokai applications based on analysis of ankoragent, ankorleads, and promy-product repositories. All tests should follow these conventions to ensure consistency, maintainability, and proper integration with the Yokai framework.
+
+## Core Principles
+
+### 1. Use `internal.RunTest()` for Integration Tests
+
+All service and repository tests should use `internal.RunTest()` to initialize the full application context with real dependencies:
+
+```go
+package identification_test
+
+import (
+    "context"
+    "database/sql"
+    "testing"
+
+    "github.com/ankorstore/yokai/fxsql"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/tclavelloux/promy-identifier/internal"
+    "github.com/tclavelloux/promy-identifier/internal/domain/identification"
+    "github.com/tclavelloux/promy-identifier/db/seeds"
+    "go.uber.org/fx"
+)
+
+func TestIdentificationService_Identify(t *testing.T) {
+    runTest := func(tb testing.TB) (identification.IdentificationService, *sql.DB, context.Context) {
+        tb.Helper()
+
+        var service identification.IdentificationService
+        var db *sql.DB
+
+        internal.RunTest(
+            tb,
+            // Execute specific seeds needed for this test
+            fxsql.RunFxSQLSeeds(
+                seeds.CategorySeedName,     // Required for category tree
+                seeds.ProductTypeSeedName,  // Required for product type mappings
+            ),
+            fx.Populate(&service, &db),
+        )
+
+        return service, db, context.Background()
+    }
+
+    t.Run("returns identification result", func(t *testing.T) {
+        service, db, ctx := runTest(t)
+
+        // Use seeded data or insert test-specific data
+        result, err := service.Identify(ctx, request)
+        require.NoError(t, err)
+        assert.NotEmpty(t, result)
+    })
+}
+```
+
+**Key Points:**
+- `internal.RunTest()` automatically loads configuration from `configs/`
+- Runs database migrations from `db/migrations/`
+- **Requires domain components to be registered in `internal/bootstrap.go`**
+- **Uses `fxsql.RunFxSQLSeeds()` to execute specific seeds per test**
+- Provides access to real services via `fx.Populate()`
+- Each test gets a fresh database state with migrations + seeds
+
+### 2. Bootstrap Configuration Requirements
+
+**CRITICAL:** `internal.RunTest()` requires proper bootstrap configuration in `internal/bootstrap.go`:
+
+```go
+// internal/bootstrap.go
+var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
+    // yokai modules registration
+    fxsql.FxSQLModule,
+    fxhttpserver.FxHttpServerModule,
+
+    // internal modules registration (dependency order matters)
+    identification.RegisterIdentificationComponents(),
+    llm.RegisterLLMComponents(),
+    promyclient.RegisterPromyClientComponents(),
+
+    // dependencies registration
+    Register(),
+
+    // routing registration
+    Router(),
+)
+
+// RunTest starts the application in test mode
+func RunTest(tb testing.TB, options ...fx.Option) {
+    tb.Helper()
+
+    tb.Setenv("MODULES_SQL_MIGRATIONS_PATH", fmt.Sprintf("%s/db/migrations", RootDir))
+
+    Bootstrapper.RunTestApp(
+        tb,
+        // config lookup
+        fxconfig.AsConfigPath(fmt.Sprintf("%s/configs/", RootDir)),
+        // test modules registration
+        fxgomysqlserver.FxGoMySQLServerModule,
+        // run database migrations
+        fxsql.RunFxSQLMigration("up"),
+        // run database seeds (order matters due to foreign key dependencies)
+        fxsql.AsSQLSeeds(
+            seeds.NewCategorySeed,      // 1. Categories (no dependencies)
+            seeds.NewProductTypeSeed,   // 2. Product Types (depends on categories)
+            // ... other seeds
+        ),
+        // test options
+        fx.Options(options...),
+    )
+}
+```
+
+**Key Requirements:**
+- **Domain components MUST be registered** in `internal/bootstrap.go`
+- **Database migrations** run automatically via `fxsql.RunFxSQLMigration("up")`
+- **Seeds are registered globally** but executed per-test via `fxsql.RunFxSQLSeeds()`
+- **Test environment** uses `config.test.yaml` overrides
+- **MySQL test database** is created automatically via `fxgomysqlserver.FxGoMySQLServerModule`
+
+**⚠️ CRITICAL: Missing Database Setup**
+
+If your project doesn't have database migrations or seeds yet, you need to:
+
+1. **Create database migrations** in `db/migrations/` (even if empty)
+2. **Add SQL module** to bootstrap: `fxsql.FxSQLModule`
+3. **Add MySQL server module** to RunTest: `fxgomysqlserver.FxGoMySQLServerModule`
+4. **Create minimal seeds** or skip seeds entirely for non-database services
+
+**For services without database dependencies:**
+```go
+// internal/bootstrap.go - Minimal setup for non-database services
+var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
+    fxhttpserver.FxHttpServerModule,
+    identification.RegisterIdentificationComponents(),
+    llm.RegisterLLMComponents(),
+    promyclient.RegisterPromyClientComponents(),
+    Register(),
+    Router(),
+)
+
+// RunTest - No database modules needed
+func RunTest(tb testing.TB, options ...fx.Option) {
+    tb.Helper()
+
+    Bootstrapper.RunTestApp(
+        tb,
+        fxconfig.AsConfigPath(fmt.Sprintf("%s/configs/", RootDir)),
+        fx.Options(options...),
+    )
+}
+```
+
+### 3. Domain Component Registration
+
+Each domain must register its components in a `Register{Domain}Components()` function:
+
+```go
+// internal/domain/identification/module.go
+func RegisterIdentificationComponents() fx.Option {
+    return fx.Options(
+        // Repository: Implementation → Interface
+        fx.Provide(
+            fx.Annotate(
+                repository.NewIdentificationRepository,
+                fx.As(new(repository.IdentificationRepository)),
+            ),
+        ),
+        // Service: Implementation → Interface
+        fx.Provide(
+            fx.Annotate(
+                NewIdentificationService,
+                fx.As(new(IdentificationService)),
+            ),
+        ),
+    )
+}
+```
+
+**Registration Pattern:**
+- **Interfaces in, Structs out**: Services accept interfaces, return concrete structs
+- **Use `fx.Annotate()` with `fx.As()`** to bind implementations to interfaces
+- **Dependency order matters**: Register dependencies before dependents
+
+### 4. Database Migrations and Seeds
+
+**Migrations:**
+- Run automatically before each test via `fxsql.RunFxSQLMigration("up")`
+- Located in `db/migrations/`
+- Use goose format with `-- +goose Up` and `-- +goose Down` directives
+- Each test gets a fresh database from migrations
+- **Contain production schema AND production seed data** (category tree, product types, etc.)
+
+**Seeds:**
+- Defined in `db/seeds/` as Go functions implementing `fxsql.Seed` interface
+- **Require BOTH registration AND execution** to work properly
+- **Provide consistent test data** for all domains
+- **Registered globally** in `internal/bootstrap.go` via `fxsql.AsSQLSeeds()`
+- **Executed per-test** in individual test files via `fxsql.RunFxSQLSeeds()`
+- Order matters due to foreign key dependencies
+
+**Seed Files Pattern:**
+```go
+// db/seeds/category.go
+package seeds
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    "time"
+
+    "github.com/ankorstore/yokai/fxsql"
+    "github.com/huandu/go-sqlbuilder"
+    "github.com/your-app/internal/domain/category/model"
+)
+
+const CategorySeedName = "category"
+
+// Export seed data for use in tests
+var (
+    SeededCategory1ID   = "c1111111-1111-1111-1111-111111111111"
+    SeededCategory1Name = "Test Category"
+    // ... more exported constants
+)
+
+var _ fxsql.Seed = (*CategorySeed)(nil)
+
+type CategorySeed struct{}
+
+func NewCategorySeed() *CategorySeed {
+    return &CategorySeed{}
+}
+
+func (s *CategorySeed) Name() string {
+    return CategorySeedName
+}
+
+func (s *CategorySeed) Run(ctx context.Context, db *sql.DB) error {
+    // Check if table exists
+    _, err := db.Exec("SELECT 1 FROM categories LIMIT 1")
+    if err != nil {
+        return fmt.Errorf("failed to check if table exists: %w", err)
+    }
+
+    // Prepare seed data
+    ib := sqlbuilder.NewInsertBuilder()
+    ib.InsertInto("categories")
+    ib.Cols("id", "name", "level", "is_active", "created_at", "updated_at")
+    ib.Values(SeededCategory1ID, SeededCategory1Name, 1, true, time.Now(), time.Now())
+
+    query, args := ib.Build()
+    _, err = db.Exec(query, args...)
+    if err != nil {
+        return fmt.Errorf("failed to insert seed data: %w", err)
+    }
+
+    return nil
+}
+```
+
+**Step 1: Register Seeds Globally in Bootstrap:**
+```go
+// internal/bootstrap.go
+func RunTest(tb testing.TB, options ...fx.Option) {
+    tb.Helper()
+
+    Bootstrapper.RunTestApp(
+        tb,
+        fxconfig.AsConfigPath(fmt.Sprintf("%s/configs/", RootDir)),
+        fxgomysqlserver.FxGoMySQLServerModule,
+        fxsql.RunFxSQLMigration("up"),
+        // STEP 1: Register seeds globally (dependency order matters)
+        fxsql.AsSQLSeeds(
+            seeds.NewDistributorSeed,  // 1. No dependencies
+            seeds.NewCategorySeed,      // 2. No dependencies
+            seeds.NewProductTypeSeed,   // 3. Depends on categories
+            seeds.NewLeafletSeed,       // 4. Depends on distributors
+            seeds.NewProductSeed,       // 5. Depends on product types
+            seeds.NewPromotionSeed,     // 6. Depends on leaflets, distributors
+        ),
+        fx.Options(options...),
+    )
+}
+```
+
+**Step 2: Execute Seeds Per-Test:**
+```go
+// internal/domain/identification/service_test.go
+func runTest(tb testing.TB) (identification.IdentificationService, *sql.DB, context.Context) {
+    tb.Helper()
+
+    var service identification.IdentificationService
+    var db *sql.DB
+
+    internal.RunTest(
+        tb,
+        // STEP 2: Execute specific seeds needed for this test
+        fxsql.RunFxSQLSeeds(
+            seeds.CategorySeedName,     // Required for category tree
+            seeds.ProductTypeSeedName,  // Required for product type mappings
+        ),
+        fx.Populate(&service, &db),
+    )
+
+    return service, db, context.Background()
+}
+```
+
+**Using Seeds in Tests:**
+
+**Option A: Use Seeded Data (Recommended for common scenarios)**
+```go
+import "github.com/your-app/db/seeds"
+
+t.Run("retrieves seeded category", func(t *testing.T) {
+    service, _, ctx := runTest(t)
+
+    // Use exported seed constants
+    result, err := service.GetByID(ctx, seeds.SeededCategory1ID)
+    require.NoError(t, err)
+    assert.Equal(t, seeds.SeededCategory1Name, result.Name)
+})
+```
+
+**Option B: Insert Test-Specific Data (For edge cases/specific scenarios)**
+```go
+t.Run("test with specific data", func(t *testing.T) {
+    service, db, ctx := runTest(t)
+
+    // Insert test-specific data when seeds don't cover your scenario
+    categoryID := "custom-test-uuid"
+    _, err := db.ExecContext(ctx,
+        "INSERT INTO categories (id, name, level, is_active) VALUES (?, ?, ?, ?)",
+        categoryID, "Custom Test Category", 1, true)
+    require.NoError(t, err)
+
+    // Run test logic
+    result, err := service.GetByID(ctx, categoryID)
+    require.NoError(t, err)
+    assert.Equal(t, "Custom Test Category", result.Name)
+})
+```
+
+**Key Principles:**
+- ✅ **BOTH registration AND execution required** - Seeds must be registered globally AND executed per-test
+- ✅ Seeds provide **consistent baseline test data**
+- ✅ Export seed IDs/values as **package-level constants** for reuse
+- ✅ Use seeds for **common happy-path scenarios**
+- ✅ Insert custom data for **edge cases and error scenarios**
+- ✅ Each test runs in **isolation** with fresh database + seeds
+- ✅ **Execute only needed seeds** - Use `fxsql.RunFxSQLSeeds()` with specific seed names per test
+
+### 5. Test Package Naming
+
+To avoid import cycles, test files use the `_test` suffix for the package name:
+
+```go
+// internal/domain/identification/service_test.go
+package identification_test  // ✅ Correct: avoids import cycle
+
+import (
+    "github.com/tclavelloux/promy-identifier/internal"
+    "github.com/tclavelloux/promy-identifier/internal/domain/identification"
+)
+
+// NOT:
+// package identification  // ❌ Wrong: causes import cycle with internal
+```
+
+**Convention:**
+- Service tests: `package {domain}_test`
+- Integration tests: `package domain_test`
+- Handler tests: `package handler_test`
+
+### 6. Dependency Injection with FX
+
+#### Default Pattern: Use Real Services
+
+By default, tests use real implementations via `fx.Populate()`:
+
+```go
+var service identification.IdentificationService
+var db *sql.DB
+
+internal.RunTest(
+    tb,
+    fx.Populate(&service, &db), // Gets real implementations
+)
+```
+
+#### Unit Testing: Replace Dependencies with Mocks
+
+For unit tests requiring isolation, use `fx.Replace()` to swap real implementations with mocks:
+
+```go
+func TestIdentificationService_Identify(t *testing.T) {
+    t.Run("successful identification", func(t *testing.T) {
+        // Create mock
+        mockLLMClient := new(identificationtest.LLMClientMock)
+        mockLLMClient.On("ClassifyProduct", mock.Anything, mock.Anything).
+            Return(&model.ClassificationResponse{
+                ProductName: "Test Product",
+                Confidence:  0.95,
+            }, nil)
+
+        var service identification.IdentificationService
+        var db *sql.DB
+
+        internal.RunTest(
+            t,
+            fx.Populate(&service, &db),
+            fx.Replace(mockLLMClient), // Replace LLM client with mock
+        )
+
+        ctx := context.Background()
+
+        // Test logic with mocked dependency
+        result, err := service.Identify(ctx, testRequest)
+        require.NoError(t, err)
+
+        mockLLMClient.AssertExpectations(t)
+    })
+}
+```
+
+### 7. Manual Mocks Pattern
+
+**Create manual mocks in `{domain}test` packages:**
+
+```go
+// internal/domain/identification/identificationtest/mock.go
+package identificationtest
+
+import (
+    "context"
+
+    "github.com/stretchr/testify/mock"
+    "github.com/tclavelloux/promy-identifier/internal/domain/identification"
+    "github.com/tclavelloux/promy-identifier/internal/domain/identification/model"
+)
+
+// ServiceMock is a manual mock for identification.IdentificationService
+type ServiceMock struct {
+    mock.Mock
+}
+
+func (m *ServiceMock) Identify(ctx context.Context, req *model.IdentificationRequest) (*model.IdentificationResponse, error) {
+    args := m.Called(ctx, req)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).(*model.IdentificationResponse), args.Error(1)
+}
+
+// Implement all interface methods...
+```
+
+**Why Manual Mocks?**
+- Full control over mock behavior
+- No external dependencies (mockery)
+- Easier to understand and debug
+- Consistent with Yokai ecosystem (see `ankorleads` project)
+
+### 8. Available Mock Packages
+
+The following mock packages are available for isolated unit testing:
+
+#### **Identification Mocks** (`internal/domain/identification/identificationtest/`)
+- ✅ **`mock.go`** - `IdentificationRepositoryMock` with all repository methods
+- ✅ **`mock_service.go`** - `IdentificationServiceMock` with all service methods
+- ✅ **`mock_llm_client.go`** - `LLMClientMock` for LLM client testing
+- ✅ **`mock_promy_client.go`** - `PromyProductClientMock` for HTTP client testing
+
+**Using Mocks in Unit Tests:**
+```go
+func TestIdentificationService_Identify_WithMocks(t *testing.T) {
+    t.Run("creates identification with mocked dependencies", func(t *testing.T) {
+        // Create mocks
+        mockLLMClient := new(identificationtest.LLMClientMock)
+        mockPromyClient := new(identificationtest.PromyProductClientMock)
+
+        // Setup mock expectations
+        mockPromyClient.On("GetProductTypes", mock.Anything).
+            Return([]model.ProductType{
+                {ID: "pt-1", Name: "pommes"},
+                {ID: "pt-2", Name: "yaourt"},
+            }, nil)
+
+        mockLLMClient.On("ClassifyProduct", mock.Anything, mock.Anything).
+            Return(&model.ClassificationResponse{
+                ProductName: "Test Product",
+                Confidence:  0.95,
+            }, nil)
+
+        var service identification.IdentificationService
+
+        internal.RunTest(
+            t,
+            fx.Populate(&service),
+            fx.Replace(fx.Annotate(mockLLMClient, fx.As(new(llm.LLMClient)))),           // Replace LLM client
+            fx.Replace(fx.Annotate(mockPromyClient, fx.As(new(promy.PromyProductClient)))), // Replace Promy client
+        )
+
+        ctx := context.Background()
+        request := &model.IdentificationRequest{
+            ProductName: "Test Product",
+            Description: "Test Description",
+        }
+
+        // Test with mocked dependencies
+        result, err := service.Identify(ctx, request)
+        require.NoError(t, err)
+        assert.Equal(t, "Test Product", result.ProductName)
+
+        // Verify mock interactions
+        mockLLMClient.AssertExpectations(t)
+        mockPromyClient.AssertExpectations(t)
+    })
+}
+```
+
+**⚠️ CRITICAL: Mock Replacement with Interface Annotations**
+
+When using `fx.Replace()` for mocks, you **MUST** specify the interface types using `fx.Annotate()` and `fx.As()`. This is essential for proper dependency injection:
+
+```go
+// ❌ INCORRECT - Mock replacement without interface specification
+internal.RunTest(
+    t,
+    fx.Populate(&service),
+    fx.Replace(mockLLMClient),      // This won't work!
+    fx.Replace(mockPromyClient),    // This won't work!
+)
+
+// ✅ CORRECT - Mock replacement with interface annotations
+internal.RunTest(
+    t,
+    fx.Populate(&service),
+    fx.Replace(fx.Annotate(mockLLMClient, fx.As(new(llm.LLMClient)))),           // Replace LLM client
+    fx.Replace(fx.Annotate(mockPromyClient, fx.As(new(promy.PromyProductClient)))), // Replace Promy client
+)
+```
+
+**How it works:**
+- The `fx.Annotate()` function tells the dependency injection system that the mock should be used as a replacement for the specified interface
+- `fx.As(new(llm.LLMClient))` specifies that the mock should replace the `LLMClient` interface
+- `fx.As(new(promy.PromyProductClient))` specifies that the mock should replace the `PromyProductClient` interface
+- This ensures that when the `IdentificationService` is created, it receives the mocked dependencies instead of the real ones
+
+**Required Imports:**
+```go
+import (
+    "github.com/tclavelloux/promy-identifier/internal/domain/llm"
+    "github.com/tclavelloux/promy-identifier/internal/domain/promy"
+    // ... other imports
+)
+```
+
+**Common Error Without Interface Annotations:**
+```
+FAIL: ClassifyProduct(string,mock.argumentMatcher)
+FAIL: 0 out of 1 expectation(s) were met.
+The code you are testing needs to make 1 more call(s).
+```
+
+This error occurs because the mocks are not being properly injected, so the service is using real implementations instead of the mocks.
+
+### 9. HTTP Client Testing
+
+For testing HTTP clients (not services), use `httptest.NewServer`:
+
+```go
+// internal/domain/promy/client_test.go
+package promy_test
+
+import (
+    "net/http"
+    "net/http/httptest"
+    "testing"
+
+    "github.com/ankorstore/yokai/config"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/tclavelloux/promy-identifier/internal/domain/promy"
+)
+
+func TestPromyProductClient_GetProductTypes(t *testing.T) {
+    // Mock HTTP server
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(response)
+    }))
+    defer server.Close()
+
+    // Create config for client
+    cfg := config.NewDefaultConfigFactory().Create()
+    cfg.Set("promy_product.url", server.URL)
+
+    // Create client
+    promyClient := promy.NewPromyProductClient(cfg)
+
+    // Test
+    result, err := promyClient.GetProductTypes(ctx)
+    require.NoError(t, err)
+    assert.Equal(t, "Expected", result[0].Name)
+}
+```
+
+**Do NOT use `internal.RunTest()` for pure HTTP client tests** - they don't need database or full app context.
+
+### 10. Test Structure Best Practices
+
+#### Table-Driven Tests
+
+```go
+func TestIdentificationService_Identify(t *testing.T) {
+    tests := []struct {
+        name           string
+        request        *model.IdentificationRequest
+        setupData      func(*sql.DB, context.Context)
+        expectedError  string
+        expectedResult func(*testing.T, *model.IdentificationResponse)
+    }{
+        {
+            name: "identifies existing product type successfully",
+            request: &model.IdentificationRequest{
+                ProductName: "Pommes Golden",
+                Description: "Pommes Golden (6)",
+            },
+            setupData: func(db *sql.DB, ctx context.Context) {
+                // Optional: setup prerequisite data
+            },
+            expectedResult: func(t *testing.T, result *model.IdentificationResponse) {
+                assert.Equal(t, "Pommes Golden", result.ProductName)
+                assert.Greater(t, result.Confidence, 0.7)
+                assert.NotEmpty(t, result.ProductTypeID)
+            },
+        },
+        // More test cases...
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            var service identification.IdentificationService
+            var db *sql.DB
+
+            internal.RunTest(
+                t,
+                fx.Populate(&service, &db),
+            )
+
+            ctx := context.Background()
+
+            if tt.setupData != nil {
+                tt.setupData(db, ctx)
+            }
+
+            result, err := service.Identify(ctx, tt.request)
+
+            if tt.expectedError != "" {
+                require.Error(t, err)
+                assert.Contains(t, err.Error(), tt.expectedError)
+            } else {
+                require.NoError(t, err)
+                tt.expectedResult(t, result)
+            }
+        })
+    }
+}
+```
+
+#### Helper Functions
+
+```go
+func TestIdentificationService_CRUD(t *testing.T) {
+    runTest := func(tb testing.TB) (identification.IdentificationService, *sql.DB, context.Context) {
+        tb.Helper() // Mark as helper
+
+        var service identification.IdentificationService
+        var db *sql.DB
+
+        internal.RunTest(
+            tb,
+            fx.Populate(&service, &db),
+        )
+
+        return service, db, context.Background()
+    }
+
+    t.Run("identifies product", func(t *testing.T) {
+        service, db, ctx := runTest(t)
+        // Test logic...
+    })
+
+    t.Run("handles low confidence", func(t *testing.T) {
+        service, db, ctx := runTest(t)
+        // Test logic...
+    })
+}
+```
+
+### 11. Integration Tests
+
+Integration tests verify end-to-end flows across multiple domains:
+
+```go
+// internal/domain/integration_test.go
+package domain_test
+
+import (
+    "context"
+    "database/sql"
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/tclavelloux/promy-identifier/internal"
+    "github.com/tclavelloux/promy-identifier/internal/domain/identification"
+    "go.uber.org/fx"
+)
+
+func TestEndToEnd_ProductIdentification(t *testing.T) {
+    t.Run("complete identification flow", func(t *testing.T) {
+        var identificationService identification.IdentificationService
+        var db *sql.DB
+
+        internal.RunTest(
+            t,
+            fx.Populate(&identificationService, &db),
+        )
+
+        ctx := context.Background()
+
+        // 1. Create identification request
+        request := &model.IdentificationRequest{
+            ProductName: "Pommes Golden (6)",
+            Description: "Pommes Golden catégorie 1",
+            ImageURL:    "https://example.com/pommes.jpg",
+        }
+
+        // 2. Identify product
+        result, err := identificationService.Identify(ctx, request)
+        require.NoError(t, err)
+
+        // 3. Verify result
+        assert.Equal(t, "Pommes Golden", result.ProductName)
+        assert.Greater(t, result.Confidence, 0.7)
+        assert.NotEmpty(t, result.ProductTypeID)
+        assert.NotEmpty(t, result.CategoryID)
+    })
+}
+```
+
+### 12. Testing Checklist
+
+For each service, test these scenarios:
+
+**Happy Path:**
+- ✅ Successful identification with existing product type
+- ✅ Successful identification with new product type
+- ✅ Successful category tree navigation
+- ✅ Successful recursive category creation
+
+**Error Cases:**
+- ✅ Validation errors (missing required fields)
+- ✅ LLM API errors (timeout, rate limit)
+- ✅ Promy Product API errors (service unavailable)
+- ✅ Low confidence scenarios
+- ✅ Invalid category tree structure
+
+**Edge Cases:**
+- ✅ Empty product types list
+- ✅ Null values in responses
+- ✅ Maximum recursion depth
+- ✅ Concurrent identification requests
+
+### 13. Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run specific package
+go test ./internal/domain/identification
+
+# Run with verbose output
+go test -v ./internal/domain/identification
+
+# Run specific test
+go test -run TestIdentificationService_Identify ./internal/domain/identification
+
+# Run with coverage
+go test -cover ./...
+
+# Run with race detection
+go test -race ./...
+```
+
+### 14. Repository Testing Patterns
+
+**Repository tests follow a consistent pattern across all three analyzed repositories:**
+
+#### **Repository Test Structure**
+```go
+// internal/domain/{domain}/repository/mysql_test.go
+package repository_test
+
+import (
+    "context"
+    "database/sql"
+    "testing"
+
+    "github.com/ankorstore/yokai/fxsql"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/your-app/internal"
+    "github.com/your-app/internal/domain/{domain}/repository"
+    "github.com/your-app/db/seeds"
+    "go.uber.org/fx"
+)
+
+func Test{RepositoryName}_{Method}(t *testing.T) {
+    runTest := func(tb testing.TB) (repository.{RepositoryInterface}, *sql.DB, context.Context) {
+        tb.Helper()
+
+        var repo repository.{RepositoryInterface}
+        var db *sql.DB
+
+        internal.RunTest(
+            tb,
+            fxsql.RunFxSQLSeeds(
+                seeds.{RequiredSeedName},
+            ),
+            fx.Populate(&repo, &db),
+        )
+
+        return repo, db, context.Background()
+    }
+
+    t.Run("successful operation", func(t *testing.T) {
+        repo, db, ctx := runTest(t)
+
+        // Use seeded data or insert test data
+        result, err := repo.{Method}(ctx, params)
+        require.NoError(t, err)
+        assert.NotNil(t, result)
+    })
+}
+```
+
+#### **Repository Test Categories**
+- **CRUD Operations**: Create, Read, Update, Delete methods
+- **Query Methods**: GetByID, GetByName, FindBy*, List* methods
+- **Business Logic**: Exists, Count, validation methods
+- **Error Handling**: Not found, constraint violations, database errors
+- **Edge Cases**: Empty results, null values, concurrent access
+
+### 15. Service Testing Patterns
+
+**Service tests use mocks for external dependencies while testing business logic:**
+
+#### **Service Test with Mocks**
+```go
+// internal/domain/{domain}/service_test.go
+package {domain}_test
+
+import (
+    "context"
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
+    "github.com/stretchr/testify/require"
+    "github.com/your-app/internal"
+    "github.com/your-app/internal/domain/{domain}"
+    "github.com/your-app/internal/domain/{domain}/{domain}test"
+    "go.uber.org/fx"
+)
+
+func Test{ServiceName}_{Method}(t *testing.T) {
+    // Setup mocks
+    mockDependency := new({domain}test.{DependencyMock})
+    mockDependency.On("Method", mock.Anything, mock.Anything).Return(result, nil)
+
+    var service {domain}.{ServiceInterface}
+
+    internal.RunTest(
+        t,
+        fx.Populate(&service),
+        fx.Replace(fx.Annotate(mockDependency, fx.As(new({domain}.{DependencyInterface})))),
+    )
+
+    ctx := context.Background()
+    result, err := service.{Method}(ctx, params)
+    require.NoError(t, err)
+    assert.NotNil(t, result)
+
+    mockDependency.AssertExpectations(t)
+}
+```
+
+#### **Service Test Categories**
+- **Business Logic**: Core service methods with mocked dependencies
+- **Error Handling**: Service-level error scenarios
+- **Validation**: Input validation and business rule enforcement
+- **Integration**: Service orchestration across multiple dependencies
+
+### 16. Handler Testing Patterns
+
+**Handler tests use the full HTTP server context with real services:**
+
+#### **Handler Test Structure**
+```go
+// internal/api/handler/{domain}/{method}_test.go
+package {domain}_test
+
+import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+
+    "github.com/ankorstore/yokai/fxsql"
+    "github.com/ankorstore/yokai/log/logtest"
+    "github.com/ankorstore/yokai/trace/tracetest"
+    "github.com/labstack/echo/v4"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    "github.com/your-app/internal"
+    "github.com/your-app/db/seeds"
+    "go.uber.org/fx"
+)
+
+func Test{HandlerName}_{Method}(t *testing.T) {
+    var httpServer *echo.Echo
+    var logBuffer logtest.TestLogBuffer
+    var traceExporter tracetest.TestTraceExporter
+
+    internal.RunTest(
+        t,
+        fxsql.RunFxSQLSeeds(
+            seeds.{RequiredSeedName},
+        ),
+        fx.Populate(
+            &httpServer,
+            &logBuffer,
+            &traceExporter,
+        ),
+    )
+
+    t.Run("successful request", func(t *testing.T) {
+        // Prepare request
+        reqBody := map[string]interface{}{
+            "field": "value",
+        }
+        jsonBody, _ := json.Marshal(reqBody)
+
+        req := httptest.NewRequest(http.MethodPost, "/api/endpoint", bytes.NewReader(jsonBody))
+        req.Header.Set("Content-Type", "application/json")
+        rec := httptest.NewRecorder()
+
+        // Execute request
+        httpServer.ServeHTTP(rec, req)
+
+        // Assert response
+        assert.Equal(t, http.StatusOK, rec.Code)
+
+        var response map[string]interface{}
+        err := json.Unmarshal(rec.Body.Bytes(), &response)
+        require.NoError(t, err)
+        assert.NotNil(t, response["data"])
+    })
+}
+```
+
+#### **Handler Test Categories**
+- **HTTP Request/Response**: Status codes, headers, body parsing
+- **Input Validation**: Invalid requests, missing fields, malformed JSON
+- **Authentication/Authorization**: Security middleware, user context
+- **Error Handling**: Service errors, validation errors, system errors
+
+### 17. Module Registration Patterns
+
+**Three distinct patterns observed across repositories:**
+
+#### **Pattern 1: Individual Domain Modules (ankoragent)**
+```go
+// internal/{domain}/module.go
+package {domain}
+
+import (
+    "github.com/ankorstore/yokai/config"
+    "go.uber.org/fx"
+)
+
+const ModuleName = "{domain}"
+
+var Module = fx.Module(
+    ModuleName,
+    fx.Provide(
+        New{ServiceName},
+        fx.Annotate(New{ServiceName}, fx.As(new({ServiceInterface}))),
+    ),
+    // Additional providers, workers, metrics
+)
+```
+
+#### **Pattern 2: Centralized Domain Registration (ankorleads)**
+```go
+// internal/domain/register.go
+package domain
+
+import (
+    "go.uber.org/fx"
+    "github.com/your-app/internal/domain/{domain1}"
+    "github.com/your-app/internal/domain/{domain2}"
+)
+
+func RegisterDomainComponents() fx.Option {
+    return fx.Options(
+        fx.Provide(
+            // Domain 1
+            fx.Annotate({domain1}.New{ServiceName}, fx.As(new({domain1}.{ServiceInterface}))),
+            // Domain 2
+            fx.Annotate({domain2}.New{ServiceName}, fx.As(new({domain2}.{ServiceInterface}))),
+        ),
+    )
+}
+```
+
+#### **Pattern 3: Domain-Specific Registration (promy-product)**
+```go
+// internal/domain/{domain}/module.go
+package {domain}
+
+import (
+    "github.com/your-app/internal/domain/{domain}/repository"
+    "go.uber.org/fx"
+)
+
+func Register{Domain}Components() fx.Option {
+    return fx.Options(
+        fx.Provide(
+            fx.Annotate(
+                repository.New{RepositoryName},
+                fx.As(new(repository.{RepositoryInterface})),
+            ),
+            fx.Annotate(
+                New{ServiceName},
+                fx.As(new({ServiceInterface})),
+            ),
+        ),
+    )
+}
+```
+
+### 18. Bootstrap Configuration Patterns
+
+**Three bootstrap patterns based on application complexity:**
+
+#### **Pattern 1: Full-Featured Application (ankoragent)**
+```go
+// internal/bootstrap.go
+var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
+    // yokai modules registration
+    fxcron.FxCronModule,
+    fxhttpclient.FxHttpClientModule,
+    fxhttpserver.FxHttpServerModule,
+    fxsql.FxSQLModule,
+    fxworker.FxWorkerModule,
+    gcppubsub.GcpPubSubModule,
+    fxvalidator.FXValidatorModule,
+
+    // internal modules registration
+    admin.Module,
+    agent.Module,
+    cron.Module,
+    llm.Module,
+    mcp.Module,
+    completion.Module,
+    conversation.Module,
+    task.Module,
+
+    // components registration
+    http.RegisterHTTPComponents(),
+    tasks.RegisterTaskComponents(),
+
+    // health checks registration
+    fxhealthcheck.AsCheckerProbe(shc.NewSQLProbe),
+    fxhealthcheck.AsCheckerProbe(whc.NewWorkerProbe),
+)
+```
+
+#### **Pattern 2: API-Focused Application (ankorleads)**
+```go
+// internal/bootstrap.go
+var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
+    // modules registration
+    fxhttpclient.FxHttpClientModule,
+    fxhttpserver.FxHttpServerModule,
+    fxsql.FxSQLModule,
+    fxworker.FxWorkerModule,
+    gcppubsub.GcpPubSubModule,
+    gcpstorage.GcpStorageModule,
+    fxvalidator.FXValidatorModule,
+    fxjsonapi.FxJSONAPIModule,
+    fxslack.FxSlackModule,
+    fxredis.FxRedisModule,
+    fxclock.FxClockModule,
+    segment.SegmentModule,
+
+    // components registration
+    api.RegisterAPIComponents(),
+    domain.RegisterDomainComponents(),
+    infra.RegisterInfraComponents(),
+    worker.RegisterWorkerComponents(),
+)
+```
+
+#### **Pattern 3: Simple Domain Application (promy-product)**
+```go
+// internal/bootstrap.go
+var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
+    // yokai modules registration
+    fxsql.FxSQLModule,
+    fxhttpserver.FxHttpServerModule,
+
+    // internal modules registration (dependency order matters)
+    distributor.RegisterDistributorComponents(),
+    category.RegisterCategoryComponents(),
+    leaflet.RegisterLeafletComponents(),
+    product.RegisterProductComponents(),
+    promotion.Module,
+
+    // dependencies registration
+    Register(),
+
+    // routing registration
+    Router(),
+)
+```
+
+### 19. Seed Implementation Patterns
+
+**Consistent seed patterns across all repositories:**
+
+#### **Seed Structure**
+```go
+// db/seeds/{domain}.go
+package seeds
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    "time"
+
+    "github.com/ankorstore/yokai/fxsql"
+    "github.com/huandu/go-sqlbuilder"
+)
+
+const {Domain}SeedName = "{domain}"
+
+// Export seed data for use in tests
+var (
+    Seeded{Entity}1ID   = "uuid-1"
+    Seeded{Entity}1Name = "Test Entity"
+    SeededCreatedAt     = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+)
+
+var _ fxsql.Seed = (*{Domain}Seed)(nil)
+
+type {Domain}Seed struct{}
+
+func New{Domain}Seed() *{Domain}Seed {
+    return &{Domain}Seed{}
+}
+
+func (s *{Domain}Seed) Name() string {
+    return {Domain}SeedName
+}
+
+func (s *{Domain}Seed) Run(ctx context.Context, db *sql.DB) error {
+    // Check if table exists
+    _, err := db.Exec("SELECT 1 FROM {table_name} LIMIT 1")
+    if err != nil {
+        return fmt.Errorf("failed to check if table exists: %w", err)
+    }
+
+    // Prepare seed data
+    ib := sqlbuilder.NewInsertBuilder()
+    ib.InsertInto("{table_name}")
+    ib.Cols("id", "name", "created_at", "updated_at")
+    ib.Values(Seeded{Entity}1ID, Seeded{Entity}1Name, SeededCreatedAt, SeededCreatedAt)
+
+    query, args := ib.Build()
+    _, err = db.Exec(query, args...)
+    if err != nil {
+        return fmt.Errorf("failed to insert seed data: %w", err)
+    }
+
+    return nil
+}
+```
+
+#### **Seed Registration in Bootstrap**
+```go
+// internal/bootstrap.go - RunTest function
+fxsql.AsSQLSeeds(
+    seeds.New{Domain1}Seed,  // 1. No dependencies
+    seeds.New{Domain2}Seed,  // 2. Depends on domain1
+    seeds.New{Domain3}Seed,  // 3. Depends on domain1, domain2
+),
+```
+
+### 20. LLM Testing Verification Steps
+
+**When implementing or modifying tests, the LLM MUST:**
+
+#### **Step 1: Verify Code Compilation**
+```bash
+# Check that all test files compile
+go build ./internal/domain/.../...test/...
+
+# Check that all domain packages with tests compile
+go build ./internal/domain/...
+
+# Verify no import cycles or syntax errors
+go vet ./...
+```
+
+#### **Step 2: Verify Tests Execute**
+```bash
+# Run a sample test to ensure the test infrastructure works
+go test -v ./internal/domain/identification/service -run TestIdentificationService_Identify
+
+# Run all tests in a domain to verify comprehensive coverage
+go test -v ./internal/domain/identification
+
+# Run integration tests
+go test -v ./internal/domain -run TestEndToEnd
+```
+
+#### **Step 3: Provide Test Coverage Summary**
+
+**The LLM MUST provide a synthetic view of test coverage including:**
+
+**Unit Test Coverage:**
+- ✅ **Repository Tests**: `{domain}/repository/mysql_test.go`
+  - CRUD operations (Create, Read, Update, Delete)
+  - Query methods (GetByID, GetByName, FindBy*, List*)
+  - Business logic methods (Exists, Count, etc.)
+  - Error handling (validation, constraints, not found)
+  - Edge cases (empty results, concurrent access)
+
+- ✅ **Service Tests**: `{domain}/service_test.go`
+  - Business logic validation
+  - Service orchestration (calling multiple repositories)
+  - Error handling and error wrapping
+  - Input validation and sanitization
+  - Business rule enforcement
+
+- ✅ **HTTP Client Tests**: `{domain}/client/*_test.go`
+  - HTTP request/response handling
+  - Error handling (network, timeout, status codes)
+  - Request serialization/deserialization
+  - Retry logic (if applicable)
+
+**Integration Test Coverage:**
+- ✅ **Cross-Domain Tests**: `internal/domain/integration_test.go`
+  - End-to-end workflows across multiple domains
+  - Database transaction handling
+  - Foreign key relationships
+  - Complex business scenarios
+
+- ✅ **API Handler Tests**: `internal/api/handler/*/..._test.go`
+  - HTTP request/response handling
+  - Input validation and error responses
+  - Authentication/authorization
+  - JSON serialization/deserialization
+
+**Mock Usage Coverage:**
+- ✅ **Unit Tests with Mocks**: Tests using `fx.Replace()` with `{domain}test` mocks
+  - Isolated business logic testing
+  - Dependency injection testing
+  - Error scenario simulation
+  - Performance testing (mocked external calls)
+
+**Test Data Coverage:**
+- ✅ **Seed Data Usage**: Tests using `seeds.Seeded*` constants
+- ✅ **Custom Test Data**: Tests inserting domain-specific test data
+- ✅ **Edge Case Data**: Tests with boundary values, null values, etc.
+
+**Example Coverage Summary:**
+```
+📊 TEST COVERAGE SUMMARY
+
+🔧 UNIT TESTS (Isolated with Mocks):
+├── Identification Domain
+│   ├── Repository: 5/5 methods tested (100%)
+│   ├── Service: 4/4 methods tested (100%)
+│   ├── LLM Client: 3/3 methods tested (100%)
+│   ├── Promy Client: 4/4 methods tested (100%)
+│   └── Mocks: 4/4 interfaces mocked (100%)
+
+🔗 INTEGRATION TESTS (Real Database):
+├── Cross-Domain Workflows: 2/2 scenarios tested (100%)
+├── Database Transactions: 1/1 patterns tested (100%)
+└── End-to-End Flows: 2/2 complete flows tested (100%)
+
+📋 TEST SCENARIOS:
+├── Happy Path: 15/15 scenarios (100%)
+├── Error Cases: 12/12 scenarios (100%)
+├── Edge Cases: 8/8 scenarios (100%)
+└── Concurrent Access: 2/2 scenarios (100%)
+
+🎯 MOCK USAGE:
+├── Unit Tests with Mocks: 8/8 tests (100%)
+├── Integration Tests (Real DB): 4/4 tests (100%)
+└── HTTP Client Tests: 7/7 tests (100%)
+
+📊 OVERALL COVERAGE: 100% of public interfaces tested
+```
+
+### 14. Common Pitfalls
+
+**❌ DON'T:**
+- Don't use `package {domain}` for test files (causes import cycles)
+- Don't forget to call `tb.Helper()` in test helper functions
+- Don't use `mockery` for generating mocks (use manual mocks)
+- Don't test implementation details (test behavior, not internals)
+- Don't forget to register new seeds in `internal/bootstrap.go`
+- Don't violate foreign key order when registering seeds
+- **Don't forget to execute seeds per-test** - Registration alone is not enough!
+- Don't execute unnecessary seeds - only run seeds needed for the specific test
+- **Don't use `fx.Replace(mock)` without interface annotations** - Use `fx.Replace(fx.Annotate(mock, fx.As(new(Interface))))`
+- Don't forget to verify compilation and test execution
+- Don't skip providing test coverage summary
+
+**✅ DO:**
+- **Register seeds globally** in `internal/bootstrap.go` with `fxsql.AsSQLSeeds()`
+- **Execute seeds per-test** with `fxsql.RunFxSQLSeeds()` using specific seed names
+- Use seeds for common test scenarios (import `db/seeds` package)
+- Insert test-specific data for edge cases and error scenarios
+- Use `package {domain}_test` for test files
+- Use `internal.RunTest()` for integration tests with real database
+- **Use `fx.Replace(fx.Annotate(mock, fx.As(new(Interface))))` for proper mock replacement**
+- Use `fx.Replace()` for unit tests requiring mocked dependencies
+- Test through public interfaces only
+- Export seed IDs/values as package constants for reuse in tests
+- Always verify code compiles and tests execute
+- Provide comprehensive test coverage summary
+
+## Summary
+
+The Yokai testing strategy, based on analysis of ankoragent, ankorleads, and promy-product repositories, emphasizes:
+
+### **Core Testing Principles:**
+1. **Integration over unit**: Use real database and services by default
+2. **Isolation when needed**: Replace dependencies with mocks using `fx.Replace()`
+3. **Clean separation**: Use `_test` package suffix to avoid import cycles
+4. **Manual mocks**: Create explicit, testable mock implementations in `{domain}test` packages
+5. **Fresh state**: Each test gets a clean database via migrations + seeds
+6. **Reusable test data**: Seeds provide consistent baseline data across all tests
+7. **Flexible testing**: Use seeds for common scenarios, insert custom data for edge cases
+8. **Verification**: Always check compilation, test execution, and provide coverage summary
+
+### **Three Bootstrap Patterns:**
+1. **Full-Featured (ankoragent)**: Complex applications with workers, cron, pub/sub, metrics
+2. **API-Focused (ankorleads)**: REST APIs with storage, caching, external integrations
+3. **Simple Domain (promy-product)**: Basic CRUD applications with minimal dependencies
+
+### **Three Module Registration Patterns:**
+1. **Individual Domain Modules**: Each domain has its own `Module` variable
+2. **Centralized Domain Registration**: Single `RegisterDomainComponents()` function
+3. **Domain-Specific Registration**: Each domain has `Register{Domain}Components()` function
+
+### **Seed Strategy:**
+- **Migrations** = Production schema + production seed data (category tree, etc.)
+- **db/seeds/** = Test data that's available in all tests
+- **Export seed constants** = Enable test assertions using `seeds.SeededCategory1ID`
+- **Register in order** = Respect foreign key dependencies when registering seeds
+- **Dual execution model** = Global registration + per-test execution for optimal performance
+
+### **Mock Strategy:**
+- **Manual mocks** in `{domain}test` packages for all interfaces
+- **Unit testing** with `fx.Replace()` for isolated business logic testing
+- **Integration testing** with `fx.Populate()` for real database behavior
+- **HTTP client testing** with `httptest.NewServer` for external service simulation
+
+### **Test Categories:**
+- **Repository Tests**: CRUD operations, queries, business logic, error handling
+- **Service Tests**: Business logic with mocked dependencies, validation, orchestration
+- **Handler Tests**: HTTP request/response, validation, authentication, error handling
+- **Integration Tests**: Cross-domain workflows, database transactions, end-to-end flows
+
+### **Key Benefits:**
+- **Reliable**: Real database behavior, not mocked SQL
+- **Maintainable**: Clear, explicit test setup with reusable seed data
+- **Fast**: Parallel execution with isolated test databases
+- **Comprehensive**: Integration tests verify actual behavior
+- **Consistent**: Same baseline data available across all tests
+- **Verified**: Compilation and execution confirmed before delivery
+
+### **Repository Analysis Insights:**
+- **ankoragent**: Most complex with workers, cron jobs, MCP integration, and comprehensive testing
+- **ankorleads**: API-focused with pub/sub, storage, and extensive domain testing
+- **promy-product**: Simple CRUD with clean domain separation and focused testing
+
+This comprehensive approach ensures tests are production-ready, maintainable, and provide confidence in the application's behavior across all layers.
+
+---
+
+**References:**
+- Yokai Framework: https://github.com/ankorstore/yokai
+- Analyzed Repositories: ankoragent, ankorleads, promy-product
+- Testing Pattern: `internal.RunTest()` from `github.com/ankorstore/yokai/fxcore`
