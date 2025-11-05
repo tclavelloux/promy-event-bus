@@ -1,4 +1,4 @@
-module github.com/ankorstore/yokai-http-template
+module github.com/tclavelloux/promy-event-bus
 
 go 1.24
 
