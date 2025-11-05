@@ -1,9 +1,19 @@
-app:
-  debug: true
-modules:
-  log:
-    level: debug
-    output: test
-  trace:
-    processor:
-      type: test
+# Test Configuration for Event Bus Library
+
+event_bus:
+  type: redis
+  redis:
+    dsn: redis://localhost:6379/1  # Use DB 1 for tests
+    pool_size: 10
+    max_retries: 3
+    min_retry_backoff: 100ms
+    max_retry_backoff: 3s
+    dial_timeout: 5s
+    read_timeout: 3s
+    write_timeout: 3s
+  consumer:
+    group: test-consumers
+    consumer_id: test-consumer-1
+    block_duration: 1s
+    batch_size: 10
+    max_concurrency: 5
