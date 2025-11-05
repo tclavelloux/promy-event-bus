@@ -162,10 +162,9 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	// Call handler with raw event data
 	// Note: In a real implementation, you would deserialize based on event type
 	// For MVP, we pass the raw event through the handler
-	var event eventbus.Event
 	// For now, we create a minimal event wrapper
 	// Services will need to deserialize based on event type
-	event = &rawEvent{
+	event := &rawEvent{
 		id:        metadata["id"].(string),
 		eventType: metadata["type"].(string),
 		timestamp: parseTime(metadata["timestamp"].(string)),
