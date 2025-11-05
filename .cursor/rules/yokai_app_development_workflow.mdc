@@ -1,0 +1,177 @@
+---
+name: yokai-development-workflow
+description: Development workflow guidelines for Yokai applications with Air hot reload
+---
+
+# Yokai Development Workflow
+
+This document outlines the development workflow and tooling practices for Yokai applications, specifically regarding hot reload, rebuilding, and deployment.
+
+## Hot Reload with Air
+
+### Development Environment
+
+**✅ Air is Running**: All Yokai applications use Air for automatic hot reload during development.
+
+When Air is active:
+- **Code changes are automatically detected and reloaded**
+- **No manual restart needed** after modifying `.go` files
+- **Fast feedback loop** (usually < 2 seconds)
+
+### When NOT to Rebuild
+
+**❌ Do NOT** restart or rebuild the server after:
+- Modifying Go source files (`.go`)
+- Adding new handlers, services, or repositories
+- Updating business logic
+- Fixing bugs in code
+- Adding new routes
+
+**Why?** Air automatically detects changes and recompiles/restarts the application.
+
+### When to Rebuild
+
+**✅ DO** rebuild/restart the server only when:
+
+1. **Configuration Changes** (`configs/*.yaml`)
+   ```bash
+   docker compose restart identifier-app-server
+   # or
+   make restart
+   ```
+
+2. **Environment Variable Changes** (`.env`)
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+
+3. **Dependency Changes** (`go.mod`, `go.sum`)
+   ```bash
+   docker compose down
+   docker compose up -d --build
+   ```
+
+4. **Dockerfile Changes** (`Dockerfile`, `dev.Dockerfile`)
+   ```bash
+   docker compose up -d --build
+   ```
+
+5. **Database Schema Changes** (migrations)
+   ```bash
+   docker compose down -v  # Wipe volumes
+   docker compose up -d    # Fresh start
+   # or just run migrations:
+   docker compose exec identifier-app-server go run main.go migrate-database up
+   ```
+
+## Development Commands
+
+### Standard Workflow
+
+```bash
+# Initial setup (once)
+docker compose up -d --build
+
+# Make code changes
+# → Air automatically reloads ✅
+
+# View logs (to see Air reload messages)
+docker compose logs -f identifier-app-server
+
+# Only restart if config/env changed
+docker compose restart identifier-app-server
+```
+
+### Air Reload Messages
+
+When Air detects changes, you'll see:
+```
+building...
+running...
+```
+
+**This is normal and expected** - do not manually restart!
+
+### Testing During Development
+
+```bash
+# Run tests (outside container)
+go test -v ./...
+
+# Run tests with race detection
+go test -race -v ./...
+
+# Test specific package
+go test -v ./internal/domain/identification/...
+```
+
+## Docker Compose Commands
+
+### Daily Development
+```bash
+make up      # Start services
+make logs    # View logs
+make down    # Stop services (keeps volumes)
+```
+
+### Full Rebuild (rarely needed)
+```bash
+make full-fresh   # Down -v + up --build (wipes data)
+```
+
+### Debugging
+```bash
+# Check container status
+docker compose ps
+
+# Access database
+docker compose exec identifier-database mysql -uroot -p<password> <database>
+
+# Shell into app container
+docker compose exec identifier-app-server sh
+
+# Check Air is running
+docker compose logs identifier-app-server | grep "air"
+```
+
+## Common Pitfalls
+
+### ❌ Don't Do This
+```bash
+# After modifying identification.go
+docker compose restart identifier-app-server  # ❌ Unnecessary! Air will reload
+```
+
+### ✅ Do This Instead
+```bash
+# After modifying identification.go
+# → Just wait 1-2 seconds, Air reloads automatically ✅
+
+# Watch the logs to confirm
+docker compose logs -f identifier-app-server
+```
+
+## Deployment vs Development
+
+### Development (Local)
+- **Air enabled**: Automatic hot reload
+- **Volume mounted**: `/app` → source code changes reflected immediately
+- **Fast feedback**: 1-2 second reload time
+
+### Railway (Production)
+- **Air disabled**: Standard binary execution
+- **No volumes**: Immutable container image
+- **Full rebuild**: On every git push
+
+## Summary
+
+**Key Principle**: Trust Air to handle code changes automatically. Only rebuild when changing configuration, dependencies, or infrastructure.
+
+**Mental Model**:
+- Code changes → Air reloads (automatic)
+- Config changes → Manual restart (rare)
+- Schema changes → Migration + restart (rare)
+- Dependency changes → Full rebuild (very rare)
+
+This workflow ensures maximum development velocity while maintaining stability.

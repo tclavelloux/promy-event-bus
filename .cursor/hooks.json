@@ -1,0 +1,44 @@
+{
+  "hooks": [
+    {
+      "name": "auto-format-go",
+      "event": "onSave",
+      "command": "go fmt",
+      "scope": "go",
+      "enabled": true,
+      "description": "Auto-format Go files on save"
+    },
+    {
+      "name": "auto-imports-go",
+      "event": "onSave",
+      "command": "goimports -w",
+      "scope": "go",
+      "enabled": true,
+      "description": "Auto-organize Go imports on save"
+    },
+    {
+      "name": "auto-lint-go",
+      "event": "onSave",
+      "command": "golangci-lint run --fix",
+      "scope": "go",
+      "enabled": true,
+      "description": "Auto-fix linting issues on save"
+    },
+    {
+      "name": "validate-yaml",
+      "event": "onSave",
+      "command": "python3 -c \"import yaml; yaml.safe_load(open('$file'))\"",
+      "scope": "yaml",
+      "enabled": true,
+      "description": "Validate YAML syntax on save"
+    },
+    {
+      "name": "validate-json",
+      "event": "onSave",
+      "command": "python3 -c \"import json; json.load(open('$file'))\"",
+      "scope": "json",
+      "enabled": true,
+      "description": "Validate JSON syntax on save"
+    }
+  ]
+}

@@ -15,11 +15,19 @@ fresh:
 	docker compose build --no-cache
 	docker compose up -d --build -V
 
+full-fresh:
+	@if [ ! -f .env ]; then \
+        cp .env.example .env; \
+    fi
+	docker compose down --remove-orphans -v
+	docker compose build --no-cache
+	docker compose up -d --build -V
+
 logs:
 	docker compose logs -f
 
 test:
-	go test -v -race -cover -count=1 -failfast ./...
+	CGO_ENABLED=0 go test -v -race -cover -count=1 -failfast ./...
 
 lint:
 	golangci-lint run -v
