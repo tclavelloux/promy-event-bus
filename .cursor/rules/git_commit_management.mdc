@@ -1,0 +1,864 @@
+---
+name: git-commit-management
+description: Git workflow guidelines for clean, atomic, and meaningful commits following Conventional Commits
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Git Commit Management
+
+This document outlines the git workflow, commit strategy, and message conventions for maintaining a clean, reviewable, and revertible codebase.
+
+## Core Principles
+
+### 1. Atomic Commits by Component
+**✅ DO:** Create separate commits for each component or logical unit of work
+```bash
+# Example workflow for adding a new feature across multiple components
+git add publisher.go
+git commit -m "feat(publisher): add batch publishing capability"
+
+git add redis/publisher.go
+git commit -m "feat(redis): implement batch publishing for Redis"
+
+git add events/product.go
+git commit -m "feat(events): add product event schemas"
+
+git add examples/publisher/main.go
+git commit -m "docs(examples): add batch publishing example"
+```
+
+**❌ DON'T:** Commit all changes across multiple components at once
+```bash
+# BAD - Too broad, hard to review and revert
+git add .
+git commit -m "add batch publishing feature"
+```
+
+### 2. Commit Granularity Guidelines
+
+**Ideal Commit Scope** (from smallest to largest):
+1. **Single file, single concern** (Best for bug fixes)
+2. **Single component package** (publisher.go + publisher_test.go)
+3. **Single feature within one component** (all event types for one domain)
+4. **Cross-component for single feature** (publisher + redis implementation, but same feature)
+
+**Maximum Commit Scope**:
+- **Hard limit**: ONE component + its tests + documentation
+- **File count**: Ideally < 10 files per commit
+- **Line changes**: Ideally < 500 lines per commit
+
+### 3. When to Split Commits
+
+**✅ ALWAYS split when**:
+- Changes span multiple components (publisher + subscriber + events)
+- Changes mix different types (feat + refactor + docs)
+- Changes include both implementation and tests (debatable, but safer)
+- Changes involve infrastructure + core library
+- Any change that makes the commit message need "and"
+
+**Example: Feature spanning multiple components**
+```bash
+# Instead of one big commit, do:
+git commit -m "feat(publisher): add retry mechanism"
+git commit -m "feat(redis): implement retry for Redis publisher"
+git commit -m "test(publisher): add retry mechanism tests"
+git commit -m "test(redis): add Redis retry integration tests"
+```
+
+## Conventional Commits Specification
+
+Follow the [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification.
+
+### Commit Message Structure
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Commit Types
+
+**Primary Types** (use most frequently):
+- `feat`: New feature for the user
+- `fix`: Bug fix for the user
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding or updating tests
+- `docs`: Documentation only changes
+
+**Secondary Types** (use when appropriate):
+- `perf`: Performance improvements
+- `build`: Changes to build system or dependencies (go.mod, Dockerfile)
+- `ci`: Changes to CI configuration files (GitHub Actions)
+- `chore`: Other changes that don't modify src or test files
+- `style`: Code style changes (formatting, missing semicolons, etc.)
+- `revert`: Reverting a previous commit
+
+### Scope Guidelines
+
+Use component-based scopes matching your library architecture:
+
+**Core library scopes**:
+- `publisher`, `subscriber`, `event`, `config`, `errors`
+
+**Event schema scopes**:
+- `events` (for event schemas in events/ package)
+
+**Implementation scopes**:
+- `redis` (for Redis implementation in redis/ package)
+
+**Infrastructure scopes**:
+- `examples`, `testutil`, `docs`, `build`, `ci`
+
+**Combined scopes** (when appropriate):
+- `events/promotion`, `redis/publisher`, `examples/subscriber`
+
+### Message Format
+
+**Description (first line)**:
+- Use imperative mood: "add" not "added" or "adds"
+- Don't capitalize first letter
+- No period at the end
+- Keep under 72 characters
+- Be specific and descriptive
+
+**✅ Good Examples**:
+```
+feat(publisher): add batch publishing capability
+fix(subscriber): prevent race condition in consumer groups
+refactor(redis): extract connection pool logic
+test(events): add validation test cases
+docs(examples): document batch publishing usage
+perf(redis): optimize stream reads with pipelining
+build(deps): upgrade redis client to v9.0.0
+```
+
+**❌ Bad Examples**:
+```
+feat: updates                              # Too vague
+fix(publisher): Fixed the bug.            # Capitalized, past tense, period
+feat(publisher): Add batching and retry   # Multiple concerns
+refactor: Code improvements               # Not descriptive
+```
+
+### Body (optional but recommended)
+
+Use the body to explain:
+- **Why** the change was made (motivation)
+- **What** problems it solves
+- **How** it differs from previous behavior
+
+```
+feat(publisher): add batch publishing capability
+
+Publishers can now publish multiple events atomically in a single
+operation. This improves performance for high-throughput scenarios
+and ensures atomicity when publishing related events.
+
+The implementation uses Redis pipeline for efficiency and validates
+all events before publishing to ensure atomicity.
+```
+
+### Footer (when needed)
+
+**Breaking Changes**:
+```
+feat(publisher)!: change publish method signature
+
+BREAKING CHANGE: Publish now requires context as first parameter.
+Clients must update to pass context.Context.
+```
+
+**Issue References**:
+```
+fix(subscriber): prevent race condition in consumer groups
+
+Fixes #123
+Closes #456
+```
+
+## Iterative Commit Workflow
+
+### Step-by-Step Process
+
+**When implementing a large feature, follow this workflow:**
+
+#### 1. Plan the Commit Strategy (before coding)
+```
+# Mental checklist:
+- Which components will be affected?
+- Can I split this into layers? (interface → implementation → tests → examples)
+- What's the logical order of commits?
+- Are there any dependencies between commits?
+```
+
+#### 2. Implement in Layers (commit after each layer)
+
+**Example: Adding batch publishing feature**
+
+```bash
+# Commit 1: Core interface
+git add publisher.go
+git commit -m "feat(publisher): add batch publishing interface"
+
+# Commit 2: Redis implementation
+git add redis/publisher.go
+git commit -m "feat(redis): implement batch publishing for Redis"
+
+# Commit 3: Tests
+git add publisher_test.go redis/publisher_test.go
+git commit -m "test(publisher): add batch publishing tests"
+
+# Commit 4: Examples
+git add examples/publisher/main.go
+git commit -m "docs(examples): add batch publishing example"
+
+# Commit 5: Documentation
+git add README.md
+git commit -m "docs: document batch publishing feature"
+```
+
+#### 3. Review Before Pushing
+
+```bash
+# Check your commit history
+git log --oneline -10
+
+# Review each commit individually
+git show HEAD~5  # Show 5 commits back
+
+# If commits are too big, split them:
+git reset --soft HEAD~1    # Undo last commit, keep changes staged
+# Then re-commit in smaller pieces
+```
+
+### When to Squash vs Keep Separate
+
+**✅ Keep Separate When**:
+- Each commit represents a logical step
+- Commits span different components
+- You want to preserve the implementation history
+- Changes are potentially revertible independently
+
+**✅ Squash When**:
+- Multiple "fix typo" commits
+- "WIP" or experimental commits
+- All changes are in the same file/function
+- Intermediate states don't compile/pass tests
+
+```bash
+# Interactive rebase to squash
+git rebase -i HEAD~5
+
+# In the editor:
+pick abc1234 feat(publisher): add batch publishing interface
+squash def5678 fix: typo in batch publishing
+squash ghi9012 fix: missing validation
+pick jkl3456 test(publisher): add batch publishing tests
+```
+
+## Component-Specific Commit Patterns
+
+### Feature Implementation
+```bash
+# Pattern: Interface → Implementation → Tests → Examples → Docs
+1. feat(component): add [feature] interface
+2. feat(implementation): implement [feature] for [backend]
+3. test(component): add [feature] tests
+4. docs(examples): add [feature] example
+5. docs: document [feature]
+```
+
+### Bug Fix
+```bash
+# Pattern: Minimal change + test proving fix
+1. fix(component): correct [specific issue]
+2. test(component): add regression test for [issue]
+```
+
+### Refactoring
+```bash
+# Pattern: Extract/rename/reorganize (maintain behavior)
+1. refactor(component): extract [helper/factory/builder]
+2. refactor(component): rename [old] to [new] for clarity
+3. test(component): update tests for refactored code
+```
+
+### Event Schema Changes
+```bash
+# Pattern: Schema → Tests → Examples
+1. feat(events): add [event] schema
+2. test(events): add [event] validation tests
+3. docs(examples): update examples with [event]
+```
+
+## Common Scenarios
+
+### Scenario 1: Large Feature with Multiple Components
+
+**Task**: Add retry mechanism that affects publisher, subscriber, and Redis implementation
+
+```bash
+# Step 1: Core interfaces
+git add publisher.go subscriber.go
+git commit -m "feat(core): add retry mechanism interfaces"
+
+# Step 2: Redis publisher implementation
+git add redis/publisher.go
+git commit -m "feat(redis): implement retry for Redis publisher"
+
+# Step 3: Redis subscriber implementation
+git add redis/subscriber.go
+git commit -m "feat(redis): implement retry for Redis subscriber"
+
+# Step 4: Tests
+git add redis/publisher_test.go redis/subscriber_test.go
+git commit -m "test(redis): add retry mechanism tests"
+
+# Step 5: Documentation
+git add README.md
+git commit -m "docs: document retry mechanism"
+```
+
+### Scenario 2: Bug Fix Across Multiple Files
+
+**Task**: Fix race condition in subscriber consumer groups
+
+```bash
+# If bug spans multiple files, still commit together (it's one fix)
+git add subscriber.go redis/subscriber.go
+git commit -m "fix(subscriber): prevent race condition in consumer groups
+
+Added mutex locks around consumer group operations and proper
+error handling when multiple consumers access the same group.
+
+Fixes #789"
+```
+
+### Scenario 3: Refactoring with Tests
+
+```bash
+# Commit 1: Refactor implementation
+git add redis/publisher.go
+git commit -m "refactor(redis): extract connection pool logic"
+
+# Commit 2: Update tests
+git add redis/publisher_test.go
+git commit -m "test(redis): update tests for extracted pool logic"
+```
+
+### Scenario 4: Adding New Event Schema
+
+**Task**: Add new product event schema
+
+```bash
+# Commit 1: Event schema
+git add events/product.go
+git commit -m "feat(events): add product identified event schema"
+
+# Commit 2: Tests
+git add events/product_test.go
+git commit -m "test(events): add product event validation tests"
+
+# Commit 3: Update examples
+git add examples/publisher/main.go examples/subscriber/main.go
+git commit -m "docs(examples): add product event examples"
+```
+
+## Pre-Commit Checklist
+
+Before every commit, verify:
+
+- [ ] **Scope**: Does this commit touch only one component/concern?
+- [ ] **Tests**: Do all tests pass? (`go test ./...`)
+- [ ] **Lints**: Are there linting issues? (`golangci-lint run`)
+- [ ] **Format**: Is code properly formatted? (Auto via hooks)
+- [ ] **Message**: Does it follow Conventional Commits?
+- [ ] **Build**: Does the library compile? (`go build ./...`)
+- [ ] **Size**: Is the commit small enough to review easily?
+- [ ] **Revert**: Could this commit be safely reverted?
+
+## Git Commands Reference
+
+### Staging Patterns
+
+```bash
+# Stage by file
+git add publisher.go
+
+# Stage by directory (component)
+git add redis/
+
+# Stage by pattern
+git add redis/*_test.go
+
+# Interactive staging (pick hunks)
+git add -p redis/publisher.go
+
+# Stage everything in current component (from component directory)
+cd redis
+git add .
+```
+
+### Reviewing Changes Before Commit
+
+```bash
+# See what's staged
+git diff --cached
+
+# See what's not staged
+git diff
+
+# See status with branch info
+git status -sb
+
+# Review specific file changes
+git diff publisher.go
+```
+
+### Amending and Fixing
+
+```bash
+# Add forgotten files to last commit
+git add forgotten_file.go
+git commit --amend --no-edit
+
+# Change last commit message
+git commit --amend
+
+# Undo last commit but keep changes
+git reset --soft HEAD~1
+
+# Unstage file (keep changes)
+git restore --staged publisher.go
+```
+
+## Integration with Cursor Agent
+
+### Agent Guidance
+
+When Cursor Agent makes changes:
+
+**After Agent completes a task:**
+1. **Review**: Check all modified files with `git status`
+2. **Group**: Mentally group changes by component
+3. **Stage**: Stage related files together
+4. **Commit**: Write proper conventional commit message
+5. **Repeat**: Continue for remaining changes
+
+**Instruct the Agent:**
+- "Create separate commits for each component"
+- "Commit the publisher changes now"
+- "Split this into interface and implementation commits"
+- "Write a conventional commit message for this"
+
+**Agent Should:**
+- ✅ Create focused changes in one component at a time
+- ✅ Notify you when a logical commit point is reached
+- ✅ Suggest commit messages following conventions
+- ✅ Ask permission before committing: "Ready to commit as 'feat(publisher): add batch publishing'. Proceed? (yes/no)"
+- ✅ Show what will be committed (files changed, commit message) before executing
+- ✅ Execute git add + git commit only after receiving approval
+- ❌ Never commit without asking first
+- ❌ Never create catch-all commits with unrelated changes
+
+### Workflow Integration
+
+**Recommended Flow:**
+
+```
+You: "Add batch publishing feature"
+
+Agent: *implements publisher interface*
+Agent: "Changes ready. Ready to commit as:
+        'feat(publisher): add batch publishing interface'
+
+        Files to be committed:
+        - publisher.go
+
+        Proceed? (yes/no)"
+
+You: "yes"
+
+Agent: *executes git add + git commit*
+Agent: "✓ Committed: feat(publisher): add batch publishing interface"
+
+Agent: *continues with Redis implementation...*
+```
+
+**Alternative - Manual Control:**
+
+```bash
+# If you prefer manual commits:
+You: "Implement batch publishing but don't commit yet"
+
+Agent: *implements changes*
+Agent: "Changes ready. Suggested commit message:
+        'feat(publisher): add batch publishing interface'"
+
+You: *manually review and commit*
+git add publisher.go
+git commit -m "feat(publisher): add batch publishing interface"
+```
+
+## Anti-Patterns to Avoid
+
+### ❌ The "Everything" Commit
+```bash
+git add .
+git commit -m "feat: add feature"
+```
+**Why bad**: Impossible to review, impossible to revert selectively
+
+### ❌ The "WIP" Commit (in main branch)
+```bash
+git commit -m "wip"
+git commit -m "fix stuff"
+git commit -m "more changes"
+```
+**Why bad**: Not descriptive, should be squashed before merge
+
+### ❌ The "And" Commit
+```bash
+git commit -m "feat(publisher): add batching and retry and update docs"
+```
+**Why bad**: Multiple concerns, should be 3 commits
+
+### ❌ The Cross-Component Mega Commit
+```bash
+# All in one commit:
+publisher.go
+subscriber.go
+redis/publisher.go
+redis/subscriber.go
+events/product.go
+examples/
+```
+**Why bad**: Should be 5-6 separate commits
+
+### ❌ The Vague Commit
+```bash
+git commit -m "fix: updates"
+git commit -m "refactor: improvements"
+```
+**Why bad**: Future you won't know what changed
+
+## Benefits of This Approach
+
+### For You
+- **Clear history**: Easy to understand what changed and when
+- **Easy review**: Small commits are faster to review
+- **Safe reverts**: Can revert specific changes without affecting others
+- **Better debugging**: `git bisect` works better with atomic commits
+- **Clean PRs**: Professional commit history in pull requests
+
+### For Team
+- **Reviewability**: Colleagues can review component by component
+- **Traceability**: Link commits to issues and features
+- **Documentation**: Commit history tells the story
+- **Automation**: Tools can parse conventional commits for changelogs
+
+### For CI/CD
+- **Semantic versioning**: Auto-bump version based on commit types
+- **Auto-changelog**: Generate changelogs from commit messages
+- **Release notes**: Automatic release notes generation
+- **Deployment triggers**: Deploy based on commit types
+
+## Examples from This Project
+
+### Good Commit History Example
+```
+feat(publisher): add batch publishing interface
+feat(redis): implement batch publishing for Redis
+test(publisher): add batch publishing tests
+feat(events): add product event schemas
+test(events): add event validation tests
+docs(examples): add batch publishing example
+fix(subscriber): prevent race condition in consumer groups
+refactor(redis): extract connection pool logic
+build(deps): upgrade redis client to v9.0.0
+```
+
+### How to Improve a Bad History
+```bash
+# Before (messy):
+abc1234 wip
+def5678 more stuff
+ghi9012 fix
+jkl3456 final changes
+
+# After (clean via interactive rebase):
+abc1234 feat(publisher): add batch publishing interface
+def5678 feat(redis): implement batch publishing
+ghi9012 test(publisher): add batch publishing tests
+jkl3456 docs(examples): add batch publishing example
+```
+
+## Pull Request Descriptions
+
+### When to Write PR Descriptions
+
+**✅ ALWAYS write a PR description** when pushing a branch or creating a pull request, even for small changes.
+
+### PR Description Structure
+
+```markdown
+## Summary
+Brief overview of what this PR accomplishes (1-2 sentences)
+
+## Changes
+- List of main changes by commit/component
+- Use bullet points for clarity
+- Group related changes together
+
+## Testing
+- How to test these changes
+- What was tested
+- Any special test cases
+
+## Notes (optional)
+- Breaking changes (if any)
+- Dependencies
+- Follow-up tasks
+```
+
+### Generating PR Descriptions from Commits
+
+**Agent Should:**
+1. **Review commit history** on the branch
+2. **Group commits by component/type**
+3. **Summarize the overall goal**
+4. **List key changes** from commit messages
+5. **Suggest the PR description** before pushing
+
+### Examples
+
+#### Example 1: Feature Branch
+
+**Commits:**
+```
+feat(publisher): add batch publishing interface
+feat(redis): implement batch publishing for Redis
+test(publisher): add batch publishing tests
+docs(examples): add batch publishing example
+```
+
+**Suggested PR Description:**
+```markdown
+## Summary
+Adds batch publishing capability to enable atomic publishing of multiple events in a single operation.
+
+## Changes
+- **Publisher**: Added batch publishing interface and methods
+- **Redis Implementation**: Implemented batch publishing using Redis pipeline
+- **Testing**: Comprehensive unit and integration tests for batch publishing
+- **Examples**: Added batch publishing example code
+
+## Testing
+- Run batch publishing example: `make example-publisher`
+- All tests pass: `make test`
+- Integration tests verify atomicity: `make test-integration`
+
+## Notes
+- No breaking changes
+- Backward compatible with existing single-event publishing
+```
+
+#### Example 2: Bug Fix Branch
+
+**Commits:**
+```
+fix(subscriber): prevent race condition in consumer groups
+test(subscriber): add regression test for race condition
+```
+
+**Suggested PR Description:**
+```markdown
+## Summary
+Fixes race condition in subscriber consumer groups when multiple consumers access the same group concurrently.
+
+## Changes
+- **Subscriber**: Added mutex locks around consumer group operations
+- **Error Handling**: Proper error handling for concurrent access scenarios
+- **Testing**: Regression test to prevent future occurrences
+
+## Testing
+- Run subscriber with multiple consumers in same group
+- Verify no race conditions occur
+- Regression test in `redis/subscriber_test.go`
+
+## Notes
+Fixes #789
+```
+
+#### Example 3: Refactoring Branch
+
+**Commits:**
+```
+refactor(redis): extract connection pool logic
+refactor(redis): rename methods for clarity
+test(redis): update tests for refactored code
+```
+
+**Suggested PR Description:**
+```markdown
+## Summary
+Refactors Redis connection pool logic for better maintainability and testability.
+
+## Changes
+- **Redis**: Extracted connection pool into separate struct
+- **Code Quality**: Improved method naming for clarity
+- **Testing**: Updated tests to reflect new structure
+
+## Testing
+- All existing tests pass
+- No functional changes
+- `make test` confirms behavior unchanged
+
+## Notes
+- No breaking changes
+- Pure refactoring - behavior identical
+- Improves code maintainability for future features
+```
+
+#### Example 4: Multi-Component Feature
+
+**Commits:**
+```
+feat(core): add retry mechanism interfaces
+feat(redis): implement retry for Redis publisher
+feat(redis): implement retry for Redis subscriber
+test(redis): add retry mechanism tests
+docs: document retry mechanism
+```
+
+**Suggested PR Description:**
+```markdown
+## Summary
+Implements automatic retry mechanism for both publisher and subscriber with exponential backoff.
+
+## Changes
+- **Core**: Added retry mechanism interfaces
+- **Redis Publisher**: Implemented retry logic for failed publishes
+- **Redis Subscriber**: Implemented retry logic for failed event processing
+- **Testing**: Comprehensive tests for retry behavior
+- **Documentation**: Complete retry mechanism documentation
+
+## Testing
+- Publish events with network failures to verify retry
+- Process events that fail to verify subscriber retry
+- All integration tests pass
+
+## Notes
+- No breaking changes
+- Retry is configurable per publisher/subscriber
+- Default: 3 attempts with exponential backoff
+```
+
+### Agent Workflow for PR Descriptions
+
+When user pushes or creates PR:
+
+1. **Analyze branch commits**:
+```bash
+git log main..HEAD --oneline
+```
+
+2. **Extract commit information**:
+   - Count commits by type (feat, fix, refactor, etc.)
+   - Count commits by component
+   - Identify main themes
+
+3. **Ask user**:
+```
+I see you're pushing branch 'feature/batch-publishing' with 4 commits:
+- 1 feat(publisher) commit
+- 1 feat(redis) commit
+- 1 test(publisher) commit
+- 1 docs(examples) commit
+
+Would you like me to generate a PR description? (yes/no)
+```
+
+4. **Generate description** if user says yes:
+```
+Here's a suggested PR description:
+
+## Summary
+[Generated summary based on commits]
+
+## Changes
+[Grouped changes by component]
+
+## Testing
+[Testing suggestions based on changes]
+
+Would you like to use this description? (yes/edit/no)
+```
+
+### PR Title Recommendations
+
+**Format**: `<type>(<scope>): <description>`
+
+**Examples:**
+- `feat(publisher): add batch publishing support`
+- `fix(subscriber): prevent race condition in consumer groups`
+- `refactor(redis): extract connection pool logic`
+- `docs(git): add git workflow documentation`
+
+**For multi-component changes:**
+- Use the primary component or most significant change
+- Or use general scope: `feat(core): add retry mechanism system`
+
+### Integration with GitHub/GitLab
+
+**GitHub PR Template** (`.github/pull_request_template.md`):
+```markdown
+## Summary
+<!-- Brief overview of changes -->
+
+## Changes
+<!-- List main changes by component -->
+-
+
+## Testing
+<!-- How to test, what was tested -->
+-
+
+## Notes
+<!-- Optional: breaking changes, dependencies, follow-ups -->
+-
+
+## Checklist
+- [ ] Tests pass (`make test`)
+- [ ] Lints pass (`make lint`)
+- [ ] Commits follow Conventional Commits
+- [ ] Each commit is atomic and focused
+- [ ] PR description is complete
+```
+
+## Summary
+
+**Golden Rules**:
+1. **One component per commit** (or one layer if same component)
+2. **Follow Conventional Commits** specification
+3. **Write descriptive messages** in imperative mood
+4. **Commit iteratively** as you build features layer by layer
+5. **Review before pushing** - check history makes sense
+6. **Keep commits small** - ideally < 10 files, < 500 lines
+7. **Make commits revertible** - each should be independently revertible
+8. **Write PR descriptions** - summarize changes for reviewers
+
+**Mental Model**:
+```
+Feature Planning → Interface (commit) → Implementation (commit) → Tests (commit) → Review → Generate PR Description → Push
+```
+
+**Remember**: Good commits are a gift to your future self and your team. Take the extra 30 seconds to craft a good commit message and split changes appropriately. A clear PR description makes reviews faster and merges smoother.
+
+---
+
+*This workflow ensures maintainable git history, easier code reviews, and safer deployments.*

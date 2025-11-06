@@ -92,4 +92,43 @@ help:
 	@echo "  clean               - Clean build artifacts and cache"
 	@echo "  example-publisher   - Run publisher example"
 	@echo "  example-subscriber  - Run subscriber example"
+	@echo "  git-status          - View git status with component grouping"
+	@echo "  git-log             - View recent commit history"
+	@echo "  git-diff            - View staged vs unstaged changes"
+	@echo "  git-check           - Run pre-commit validation"
 	@echo "  help                - Show this help message"
+
+# Git workflow helpers
+.PHONY: git-status
+git-status:
+	@echo "=== Git Status with Branch Info ==="
+	@git status -sb
+	@echo "\n=== Uncommitted Files by Component ==="
+	@git status --short | grep -E "^ M|^M |^A |^ A" | awk '{print $$2}' | \
+		sed -E 's|^(publisher|subscriber|event|config|errors)\.go|\1|; s|^redis/(.*)|\1 (redis)|; s|^events/(.*)|\1 (events)|; s|^examples/(.*)|\1 (examples)|; s|^testutil/(.*)|\1 (testutil)|' | \
+		sort -u | sed 's/^/  - /' || echo "  (no uncommitted files)"
+
+.PHONY: git-log
+git-log:
+	@git log --oneline --graph --decorate -20
+
+.PHONY: git-diff
+git-diff:
+	@echo "=== Staged Changes ==="
+	@git diff --cached --stat
+	@echo "\n=== Unstaged Changes ==="
+	@git diff --stat
+
+.PHONY: git-check
+git-check:
+	@echo "=== Pre-Commit Checklist ==="
+	@echo "[ ] One component/concern per commit?"
+	@echo "[ ] Message follows Conventional Commits?"
+	@echo "[ ] Files related to same feature?"
+	@echo "[ ] < 10 files, < 500 lines?"
+	@echo ""
+	@echo "=== Running Tests ==="
+	@go test ./... -short
+	@echo ""
+	@echo "=== Running Linter ==="
+	@golangci-lint run --timeout=5m
