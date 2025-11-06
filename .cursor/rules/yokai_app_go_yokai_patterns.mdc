@@ -122,7 +122,7 @@ type Repository interface {
     SaveUser(ctx context.Context, user User) error
     UpdateUser(ctx context.Context, user User) error
     DeleteUser(ctx context.Context, id int) error
-
+    
     // Query operations (reads)
     FindUser(ctx context.Context, params FindUserParams) (User, error)
     ListUsers(ctx context.Context, params ListUsersParams) ([]User, error)
@@ -149,13 +149,13 @@ type CreateUserHandler struct {
 func (h *CreateUserHandler) Handle() echo.HandlerFunc {
     return func(c echo.Context) error {
         ctx := c.Request().Context()
-
+        
         // 1. Extract authentication context
         // 2. Parse and validate HTTP request
         // 3. Convert HTTP request to domain parameters
         // 4. Call business logic
         // 5. Convert domain result to HTTP response
-
+        
         return h.processor.ProcessResponse(c, http.StatusCreated, response)
     }
 }
@@ -177,12 +177,12 @@ var Bootstrapper = fxcore.NewBootstrapper().WithOptions(
     fxhttpserver.FxHttpServerModule,
     fxsql.FxSQLModule,
     fxworker.FxWorkerModule,
-
+    
     // Contrib modules
     fxredis.FxRedisModule,
     fxjsonapi.FxJSONAPIModule,
     fxgcppubsub.FxGcpPubSubModule,
-
+    
     // Application components
     api.RegisterAPIComponents(),
     domain.RegisterDomainComponents(),
@@ -333,9 +333,9 @@ func (s *DefaultService) CreateUser(ctx context.Context, params CreateUserParams
     logger := log.CtxLogger(ctx)
     ctx, span := trace.CtxTracer(ctx).Start(ctx, "UserService.CreateUser")
     defer span.End()
-
+    
     logger.Info().Str("email", params.Email).Msg("creating user")
-
+    
     // Business logic with automatic trace propagation
     user, err := s.repository.SaveUser(ctx, userToSave)
     if err != nil {
@@ -343,7 +343,7 @@ func (s *DefaultService) CreateUser(ctx context.Context, params CreateUserParams
         span.RecordError(err)
         return nil, fmt.Errorf("failed to save user: %w", err)
     }
-
+    
     return user, nil
 }
 ```

@@ -406,3 +406,27 @@ See [LICENSE](LICENSE) file for details.
 ---
 
 **Made with ❤️ for the Promy ecosystem**
+
+## Development Workflow
+
+### Git Workflow
+
+- Create feature branches from `main`
+- Follow [Conventional Commits](https://www.conventionalcommits.org/)
+- Keep commits atomic (one component per commit)
+- See [.cursor/GIT_COMMIT_CHEATSHEET.md](GIT_COMMIT_CHEATSHEET.md) for quick reference
+- See [.cursor/GIT_WORKFLOW_SUMMARY.md](GIT_WORKFLOW_SUMMARY.md) for detailed workflow
+
+### Release Management
+
+This repository uses [Release Please](https://github.com/googleapis/release-please) for automated releases.
+See [RELEASE_PLEASE_GUIDE.md](RELEASE_PLEASE_GUIDE.md) for details.
+
+### Useful Commands
+
+```bash
+make git-status    # View status with component grouping
+make git-log       # View recent commit history
+make git-diff      # View staged vs unstaged changes
+make git-check     # Run pre-commit checks (tests + lint)
+```

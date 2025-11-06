@@ -35,7 +35,7 @@ When Air is active:
 
 1. **Configuration Changes** (`configs/*.yaml`)
    ```bash
-   docker compose restart identifier-app-server
+   docker compose restart promotion-app-server
    # or
    make restart
    ```
@@ -62,7 +62,7 @@ When Air is active:
    docker compose down -v  # Wipe volumes
    docker compose up -d    # Fresh start
    # or just run migrations:
-   docker compose exec identifier-app-server go run main.go migrate-database up
+   docker compose exec promotion-app-server go run main.go migrate-database up
    ```
 
 ## Development Commands
@@ -77,10 +77,10 @@ docker compose up -d --build
 # → Air automatically reloads ✅
 
 # View logs (to see Air reload messages)
-docker compose logs -f identifier-app-server
+docker compose logs -f promotion-app-server
 
 # Only restart if config/env changed
-docker compose restart identifier-app-server
+docker compose restart promotion-app-server
 ```
 
 ### Air Reload Messages
@@ -103,7 +103,7 @@ go test -v ./...
 go test -race -v ./...
 
 # Test specific package
-go test -v ./internal/domain/identification/...
+go test -v ./internal/domain/user/...
 ```
 
 ## Docker Compose Commands
@@ -126,30 +126,30 @@ make full-fresh   # Down -v + up --build (wipes data)
 docker compose ps
 
 # Access database
-docker compose exec identifier-database mysql -uroot -p<password> <database>
+docker compose exec promotion-database mysql -uroot -p<password> <database>
 
 # Shell into app container
-docker compose exec identifier-app-server sh
+docker compose exec promotion-app-server sh
 
 # Check Air is running
-docker compose logs identifier-app-server | grep "air"
+docker compose logs promotion-app-server | grep "air"
 ```
 
 ## Common Pitfalls
 
 ### ❌ Don't Do This
 ```bash
-# After modifying identification.go
-docker compose restart identifier-app-server  # ❌ Unnecessary! Air will reload
+# After modifying user.go
+docker compose restart promotion-app-server  # ❌ Unnecessary! Air will reload
 ```
 
 ### ✅ Do This Instead
 ```bash
-# After modifying identification.go
+# After modifying user.go
 # → Just wait 1-2 seconds, Air reloads automatically ✅
 
 # Watch the logs to confirm
-docker compose logs -f identifier-app-server
+docker compose logs -f promotion-app-server
 ```
 
 ## Deployment vs Development

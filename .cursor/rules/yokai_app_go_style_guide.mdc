@@ -77,13 +77,13 @@ func (h *Handler) Handle() echo.HandlerFunc {
         if err := c.Bind(&body); err != nil {
             return fmt.Errorf("invalid request: %w", err)
         }
-
+        
         // Call service
         result, err := h.service.Process(ctx, body)
         if err != nil {
             return fmt.Errorf("processing failed: %w", err)
         }
-
+        
         // Return response
         return c.JSON(http.StatusOK, result)
     }
@@ -96,15 +96,15 @@ func (h *Handler) Handle() echo.HandlerFunc {
 func (h *Handler) Handle() echo.HandlerFunc {
     return func(c echo.Context) error {
         startTime := time.Now() // ❌ Metrics belong in service
-
+        
         // ❌ Business validation logic
         if body.Query == "" || len(body.Query) < 3 {
             return errors.New("query too short")
         }
-
+        
         // ❌ Complex processing
         processedData := complexBusinessLogic(body)
-
+        
         processingTime := time.Since(startTime).Milliseconds() // ❌ Service concern
         logger.Info().Int64("processingMs", processingTime)    // ❌ Service logging
     }
@@ -117,25 +117,25 @@ func (h *Handler) Handle() echo.HandlerFunc {
 func (s *Service) Process(ctx context.Context, params Params) (*Result, error) {
     logger := log.CtxLogger(ctx)
     startTime := time.Now()
-
+    
     // Business validation
     if err := s.validateParams(params); err != nil {
         return nil, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
     }
-
+    
     // Business logic
     result, err := s.executeBusinessLogic(ctx, params)
     if err != nil {
         logger.Error().Err(err).Msg("business operation failed")
         return nil, fmt.Errorf("%w: %w", ErrProcessingFailed, err)
     }
-
+    
     // Business metrics
     logger.Info().
         Dur("duration", time.Since(startTime)).
         Int("itemsProcessed", len(result.Items)).
         Msg("processing completed successfully")
-
+    
     return result, nil
 }
 ```
