@@ -1,0 +1,20 @@
+# Event Bus Library Configuration Example
+# This file serves as a reference for services using promy-event-bus
+
+event_bus:
+  type: redis
+  redis:
+    dsn: ${REDIS_URL:-redis://localhost:6379/0}
+    pool_size: 20
+    max_retries: 5
+    min_retry_backoff: 100ms
+    max_retry_backoff: 5s
+    dial_timeout: 10s
+    read_timeout: 5s
+    write_timeout: 5s
+  consumer:
+    group: ${APP_NAME}-consumers
+    consumer_id: ${APP_NAME}-${HOSTNAME}
+    block_duration: 2s
+    batch_size: 50
+    max_concurrency: 10

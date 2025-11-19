@@ -109,9 +109,9 @@ func main() {
     // Define event handler
     handler := func(ctx context.Context, event eventbus.Event) error {
         log.Printf("Processing event: %s (type: %s)", event.EventID(), event.EventType())
-        
+
         // Your business logic here
-        
+
         return nil // Return nil on success, error to trigger retry
     }
 
