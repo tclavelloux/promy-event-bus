@@ -1,10 +1,11 @@
-package events
+package product
 
 import (
 	"fmt"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+	"github.com/tclavelloux/promy-event-bus/events"
 )
 
 // ProductIdentifiedEvent is published when a product is identified by the AI system.
@@ -26,7 +27,7 @@ func NewProductIdentifiedEvent(
 	confidence float64,
 ) *ProductIdentifiedEvent {
 	return &ProductIdentifiedEvent{
-		BaseEvent:    eventbus.NewBaseEvent(EventProductIdentified, "promy-identifier"),
+		BaseEvent:    eventbus.NewBaseEvent(events.EventProductIdentified, "promy-identifier"),
 		PromotionID:  promotionID,
 		ProductID:    productID,
 		ProductType:  productType,
@@ -51,5 +52,6 @@ func (e *ProductIdentifiedEvent) Validate() error {
 	if e.Confidence < 0 || e.Confidence > 1 {
 		return fmt.Errorf("%w: confidence must be between 0 and 1", eventbus.ErrInvalidEvent)
 	}
+
 	return nil
 }

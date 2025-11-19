@@ -1,3 +1,4 @@
+//nolint:all // Test file
 package redis_test
 
 import (
@@ -6,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
-	"github.com/tclavelloux/promy-event-bus/events"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+	"github.com/tclavelloux/promy-event-bus/events/promotion"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
 	"github.com/stretchr/testify/assert"
@@ -106,7 +107,7 @@ func TestSubscriber_Subscribe(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Publish test event
-		event := events.NewPromotionCreatedEvent(
+		event := promotion.NewPromotionCreatedEvent(
 			"promo-test",
 			"Test Product",
 			"dist-test",
@@ -165,7 +166,7 @@ func TestSubscriber_Subscribe(t *testing.T) {
 
 		// Publish multiple events
 		for i := 0; i < 5; i++ {
-			event := events.NewPromotionCreatedEvent(
+			event := promotion.NewPromotionCreatedEvent(
 				"promo-"+string(rune(i)),
 				"Product "+string(rune(i)),
 				"dist-1",
@@ -220,7 +221,7 @@ func TestSubscriber_Subscribe(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		event := events.NewPromotionCreatedEvent(
+		event := promotion.NewPromotionCreatedEvent(
 			"promo-retry",
 			"Retry Product",
 			"dist-1",

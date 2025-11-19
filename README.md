@@ -1,6 +1,8 @@
+
+
 # promy-event-bus
 
-A lightweight, production-ready event bus library for Go microservices using Redis Streams. Designed for asynchronous event-driven communication between services with at-least-once delivery, consumer groups, and automatic retry.
+A lightweight, production-ready event bus library for Go microservices using Redis Streams. Designed for asynchronous event-driven communication between services with at-least-once delivery, consumer groups, automatic retry, and **schema governance**.
 
 ## Features
 
@@ -11,6 +13,8 @@ A lightweight, production-ready event bus library for Go microservices using Red
 - **🎯 At-Least-Once Delivery**: Guaranteed message delivery with acknowledgments
 - **⚡ Batch Publishing**: Efficient batch event publishing
 - **🏥 Health Checks**: Built-in connection health monitoring
+- **✅ Schema Validation**: Automatic JSON schema validation
+- **🔒 Schema Governance**: Backward compatibility checking
 - **🧪 Fully Tested**: Comprehensive test suite with integration tests
 - **📝 Well Documented**: Clear examples and extensive documentation
 
@@ -31,8 +35,9 @@ import (
     "context"
     "log"
 
-    eventbus "github.com/tclavelloux/promy-event-bus"
+    eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
     "github.com/tclavelloux/promy-event-bus/events"
+    "github.com/tclavelloux/promy-event-bus/events/user"
     "github.com/tclavelloux/promy-event-bus/redis"
 )
 
@@ -50,18 +55,10 @@ func main() {
     defer publisher.Close()
 
     // Publish an event
-    event := events.NewPromotionCreatedEvent(
-        "promo-123",
-        "Patate douce",
-        "dist-456",
-        "cat-789",
-        []string{"2025-11-06"},
-        9.99,
-        "https://example.com/image.jpg",
-    )
+    event := user.NewUserRegisteredEvent("user-123", "john@example.com")
 
     ctx := context.Background()
-    if err := publisher.Publish(ctx, events.StreamPromotions, event); err != nil {
+    if err := publisher.Publish(ctx, events.StreamUsers, event); err != nil {
         log.Printf("Failed to publish: %v", err)
     }
 
@@ -82,7 +79,7 @@ import (
     "syscall"
     "time"
 
-    eventbus "github.com/tclavelloux/promy-event-bus"
+    eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
     "github.com/tclavelloux/promy-event-bus/events"
     "github.com/tclavelloux/promy-event-bus/redis"
 )
@@ -112,9 +109,9 @@ func main() {
     // Define event handler
     handler := func(ctx context.Context, event eventbus.Event) error {
         log.Printf("Processing event: %s (type: %s)", event.EventID(), event.EventType())
-        
+
         // Your business logic here
-        
+
         return nil // Return nil on success, error to trigger retry
     }
 
@@ -133,7 +130,7 @@ func main() {
 
     // Start consuming
     if err := subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
-        Stream:         events.StreamPromotions,
+        Stream:         events.StreamUsers,
         ConsumerGroup:  config.Consumer.Group,
         ConsumerID:     config.Consumer.ConsumerID,
         Handler:        handler,
@@ -150,6 +147,11 @@ func main() {
 
 The library provides predefined event schemas as a single source of truth:
 
+### User Events
+- `UserRegisteredEvent` - When a new user registers
+- `UserPreferencesUpdatedEvent` - When user preferences are updated
+- `UserLocationUpdatedEvent` - When user location is updated
+
 ### Promotion Events
 - `PromotionCreatedEvent` - When a promotion is created
 - `PromotionUpdatedEvent` - When a promotion is updated
@@ -158,15 +160,43 @@ The library provides predefined event schemas as a single source of truth:
 ### Product Events
 - `ProductIdentifiedEvent` - When a product is identified by AI
 
-### User Events
-- `UserRegisteredEvent` - When a new user registers
-- `UserPreferencesUpdatedEvent` - When user preferences are updated
-- `UserLocationUpdatedEvent` - When user location is updated
-
 ### Streams
+- `events:users` - User-related events
 - `events:promotions` - Promotion-related events
 - `events:products` - Product-related events
-- `events:users` - User-related events
+
+## Schema Governance
+
+The event bus includes **built-in schema validation** and **backward compatibility checking**.
+
+### Schema Validation
+
+Events are automatically validated when published:
+
+```go
+event := user.NewUserRegisteredEvent("user-123", "john@example.com")
+// Validation happens automatically - invalid events are rejected
+publisher.Publish(ctx, events.StreamUsers, event)
+```
+
+### Backward Compatibility
+
+The library prevents breaking changes:
+
+```bash
+# Run compatibility tests
+go test ./eventbus/... -run Compatibility
+```
+
+✅ **Safe changes:**
+- Add optional fields
+- Remove optional fields
+- Widen constraints
+
+❌ **Breaking changes:**
+- Remove required fields
+- Change field types
+- Add required fields without defaults
 
 ## Configuration
 
@@ -203,34 +233,6 @@ config := eventbus.Config{
 }
 ```
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   promy-event-bus                       │
-│              (Abstraction Layer - Go Module)            │
-├─────────────────────────────────────────────────────────┤
-│  ┌──────────────┐         ┌──────────────┐            │
-│  │ EventPublisher│         │EventSubscriber│            │
-│  │  (Interface)  │         │  (Interface)  │            │
-│  └───────┬──────┘         └───────┬───────┘            │
-│          │                        │                     │
-│  ┌───────▼──────────────────────▼────────┐            │
-│  │     Implementation Layer                │            │
-│  │  ┌─────────────┐   ┌────────────────┐ │            │
-│  │  │   Redis     │   │  Pub/Sub       │ │            │
-│  │  │  Streams    │   │  (Future)      │ │            │
-│  │  └─────────────┘   └────────────────┘ │            │
-│  └─────────────────────────────────────────┘            │
-└─────────────────────────────────────────────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-┌───────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
-│ promy-product│  │ promy-user  │  │promy-notif  │
-│  (Publisher) │  │ (Publisher) │  │(Subscriber) │
-└──────────────┘  └─────────────┘  └─────────────┘
-```
 
 ## Testing
 
@@ -277,13 +279,12 @@ make example-publisher
 
 ### 1. Event Validation
 
-Always validate events before publishing:
+Always validate events before publishing (automatic):
 
 ```go
-event := events.NewPromotionCreatedEvent(...)
-if err := event.Validate(); err != nil {
-    return fmt.Errorf("invalid event: %w", err)
-}
+event := user.NewUserRegisteredEvent(userID, email)
+// Validation happens automatically
+publisher.Publish(ctx, events.StreamUsers, event)
 ```
 
 ### 2. Error Handling
@@ -337,6 +338,15 @@ events := []eventbus.Event{event1, event2, event3}
 publisher.PublishBatch(ctx, stream, events) // More efficient than 3 separate Publish calls
 ```
 
+### 6. Schema Versioning
+
+Explicitly version your schemas:
+
+```go
+event := user.NewUserRegisteredEvent(userID, email)
+event.SchemaVersion = "1.1" // Set schema version
+```
+
 ## Retry Strategy
 
 The subscriber implements automatic retry with exponential backoff:
@@ -355,6 +365,42 @@ After 3 failed attempts, the message is acknowledged to prevent infinite loops.
 - **Subscriber**: Configurable concurrency for parallel processing
 - **Batch Operations**: Pipeline support for high throughput
 - **Connection Pooling**: Reusable connections for efficiency
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   promy-event-bus                       │
+│              (Abstraction Layer - Go Module)            │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────┐         ┌──────────────┐            │
+│  │ EventPublisher│         │EventSubscriber│            │
+│  │  (Interface)  │         │  (Interface)  │            │
+│  └───────┬──────┘         └───────┬───────┘            │
+│          │                        │                     │
+│  ┌───────▼──────────────────────▼────────┐            │
+│  │     Implementation Layer                │            │
+│  │  ┌─────────────┐   ┌────────────────┐ │            │
+│  │  │   Redis     │   │  Pub/Sub       │ │            │
+│  │  │  Streams    │   │  (Future)      │ │            │
+│  │  └─────────────┘   └────────────────┘ │            │
+│  └─────────────────────────────────────────┘            │
+│                                                         │
+│  ┌──────────────────────────────────────┐              │
+│  │     Schema Governance                │              │
+│  │  ┌──────────────┐  ┌──────────────┐ │              │
+│  │  │  Validator   │  │   Registry   │ │              │
+│  │  └──────────────┘  └──────────────┘ │              │
+│  └──────────────────────────────────────┘              │
+└─────────────────────────────────────────────────────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+┌───────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
+│ promy-product│  │ promy-user  │  │promy-notif  │
+│  (Publisher) │  │ (Publisher) │  │(Subscriber) │
+└──────────────┘  └─────────────┘  └─────────────┘
+```
 
 ## Development
 
@@ -383,11 +429,20 @@ make clean
 - [x] Basic retry logic (3 attempts)
 - [x] Event schemas
 - [x] Integration tests
+- [x] Schema validation
+- [x] Backward compatibility checking
 - [ ] Dead Letter Queue (DLQ)
 - [ ] Advanced retry strategies
 - [ ] Metrics and observability
 - [ ] Google Cloud Pub/Sub implementation
 - [ ] Tracing integration
+- [ ] Schema Registry HTTP service (optional)
+
+## Documentation
+
+- [Schema Governance Guide](SCHEMA_GOVERNANCE.md) - Detailed schema management guide
+- [Examples](examples/) - Working code examples
+- [Tests](eventbus/) - Comprehensive test suite
 
 ## Contributing
 
@@ -406,27 +461,3 @@ See [LICENSE](LICENSE) file for details.
 ---
 
 **Made with ❤️ for the Promy ecosystem**
-
-## Development Workflow
-
-### Git Workflow
-
-- Create feature branches from `main`
-- Follow [Conventional Commits](https://www.conventionalcommits.org/)
-- Keep commits atomic (one component per commit)
-- See [.cursor/GIT_COMMIT_CHEATSHEET.md](GIT_COMMIT_CHEATSHEET.md) for quick reference
-- See [.cursor/GIT_WORKFLOW_SUMMARY.md](GIT_WORKFLOW_SUMMARY.md) for detailed workflow
-
-### Release Management
-
-This repository uses [Release Please](https://github.com/googleapis/release-please) for automated releases.
-See [RELEASE_PLEASE_GUIDE.md](RELEASE_PLEASE_GUIDE.md) for details.
-
-### Useful Commands
-
-```bash
-make git-status    # View status with component grouping
-make git-log       # View recent commit history
-make git-diff      # View staged vs unstaged changes
-make git-check     # Run pre-commit checks (tests + lint)
-```

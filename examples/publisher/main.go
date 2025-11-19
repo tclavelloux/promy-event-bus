@@ -5,8 +5,11 @@ import (
 	"log"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
+	"github.com/tclavelloux/promy-event-bus/events/product"
+	"github.com/tclavelloux/promy-event-bus/events/promotion"
+	"github.com/tclavelloux/promy-event-bus/events/user"
 	"github.com/tclavelloux/promy-event-bus/redis"
 )
 
@@ -24,7 +27,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create publisher: %v", err)
 	}
-	defer publisher.Close()
+	defer func() {
+		if err := publisher.Close(); err != nil {
+			log.Printf("Failed to close publisher: %v", err)
+		}
+	}()
 
 	log.Println("Publisher created successfully")
 
@@ -33,7 +40,7 @@ func main() {
 
 	// Example 1: Publish a single promotion event
 	log.Println("\n=== Publishing Single Promotion Event ===")
-	promoEvent := events.NewPromotionCreatedEvent(
+	promoEvent := promotion.NewPromotionCreatedEvent(
 		"promo-123",
 		"Patate douce",
 		"dist-456",
@@ -51,7 +58,7 @@ func main() {
 
 	// Example 2: Publish a user registered event
 	log.Println("\n=== Publishing User Registered Event ===")
-	userEvent := events.NewUserRegisteredEvent("user-789", "john.doe@example.com")
+	userEvent := user.NewUserRegisteredEvent("user-789", "john.doe@example.com")
 
 	if err := publisher.Publish(ctx, events.StreamUsers, userEvent); err != nil {
 		log.Printf("Failed to publish user event: %v", err)
@@ -61,7 +68,7 @@ func main() {
 
 	// Example 3: Publish a product identified event
 	log.Println("\n=== Publishing Product Identified Event ===")
-	productEvent := events.NewProductIdentifiedEvent(
+	productEvent := product.NewProductIdentifiedEvent(
 		"promo-123",
 		"prod-456",
 		"vegetables",
@@ -79,7 +86,7 @@ func main() {
 	// Example 4: Batch publish multiple events
 	log.Println("\n=== Publishing Batch of Events ===")
 	batchEvents := []eventbus.Event{
-		events.NewPromotionCreatedEvent(
+		promotion.NewPromotionCreatedEvent(
 			"promo-200",
 			"Pommes Golden",
 			"dist-101",
@@ -88,7 +95,7 @@ func main() {
 			3.99,
 			"https://example.com/pommes.jpg",
 		),
-		events.NewPromotionCreatedEvent(
+		promotion.NewPromotionCreatedEvent(
 			"promo-201",
 			"Bananes",
 			"dist-101",
@@ -97,7 +104,7 @@ func main() {
 			2.49,
 			"https://example.com/bananes.jpg",
 		),
-		events.NewPromotionCreatedEvent(
+		promotion.NewPromotionCreatedEvent(
 			"promo-202",
 			"Oranges",
 			"dist-101",

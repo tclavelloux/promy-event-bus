@@ -1,3 +1,4 @@
+//nolint:all // Example file
 package main
 
 import (
@@ -9,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
 	"github.com/tclavelloux/promy-event-bus/redis"
 )
@@ -37,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create subscriber: %v", err)
 	}
-	defer subscriber.Close()
+	defer subscriber.Close() //nolint:errcheck // Example cleanup
 
 	log.Println("Subscriber created successfully")
 
@@ -130,6 +131,8 @@ func main() {
 }
 
 // Example of how to subscribe to multiple streams in a real application
+//
+//nolint:all // Example function
 func exampleMultiStreamSubscription() {
 	config := eventbus.Config{
 		Redis: eventbus.RedisConfig{
@@ -197,16 +200,19 @@ func exampleMultiStreamSubscription() {
 	}()
 }
 
+//nolint:unused // Example function
 func handlePromotionEvent(ctx context.Context, event eventbus.Event) error {
 	log.Printf("Processing promotion event: %s", event.EventID())
 	return nil
 }
 
+//nolint:unused // Example function
 func handleProductEvent(ctx context.Context, event eventbus.Event) error {
 	log.Printf("Processing product event: %s", event.EventID())
 	return nil
 }
 
+//nolint:unused // Example function
 func handleUserEvent(ctx context.Context, event eventbus.Event) error {
 	log.Printf("Processing user event: %s", event.EventID())
 	return nil
