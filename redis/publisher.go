@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -65,9 +65,14 @@ func NewPublisher(config eventbus.RedisConfig) (*Publisher, error) {
 
 // Publish publishes a single event to Redis Streams.
 func (p *Publisher) Publish(ctx context.Context, stream string, event eventbus.Event) error {
-	// Validate event
+	// Validate struct tags first (required fields, formats, constraints)
+	if err := eventbus.ValidateStruct(event); err != nil {
+		return err
+	}
+
+	// Validate event business rules (event-specific validation)
 	if err := event.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", eventbus.ErrInvalidEvent, err)
+		return err
 	}
 
 	// Serialize metadata
@@ -111,13 +116,19 @@ func (p *Publisher) PublishBatch(ctx context.Context, stream string, events []ev
 		return nil
 	}
 
+	// Validate all events first before publishing batch
+	for _, event := range events {
+		if err := eventbus.ValidateStruct(event); err != nil {
+			return err
+		}
+		if err := event.Validate(); err != nil {
+			return err
+		}
+	}
+
 	pipe := p.client.Pipeline()
 
 	for _, event := range events {
-		if err := event.Validate(); err != nil {
-			return fmt.Errorf("%w: event %s: %w", eventbus.ErrInvalidEvent, event.EventID(), err)
-		}
-
 		metadata := map[string]any{
 			"id":        event.EventID(),
 			"type":      event.EventType(),
@@ -125,8 +136,15 @@ func (p *Publisher) PublishBatch(ctx context.Context, stream string, events []ev
 			"version":   "1.0",
 			"attempt":   1,
 		}
-		metadataJSON, _ := json.Marshal(metadata)
-		payloadJSON, _ := json.Marshal(event)
+		metadataJSON, err := json.Marshal(metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+
+		payloadJSON, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("failed to marshal payload: %w", err)
+		}
 
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,
