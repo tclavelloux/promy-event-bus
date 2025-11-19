@@ -9,7 +9,6 @@ type Config struct {
 
 	// Redis configuration (when Type == "redis").
 	Redis RedisConfig `yaml:"redis"`
-
 	// Consumer configuration.
 	Consumer ConsumerConfig `yaml:"consumer"`
 }

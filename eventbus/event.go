@@ -23,11 +23,11 @@ type Event interface {
 
 // BaseEvent provides common event fields that all events should embed.
 type BaseEvent struct {
-	ID        string    `json:"id"`
-	Type      string    `json:"type"`
-	Timestamp time.Time `json:"timestamp"`
-	Version   string    `json:"version"`
-	Source    string    `json:"source"`
+	ID        string    `json:"id" validate:"required,uuid"`
+	Type      string    `json:"type" validate:"required"`
+	Timestamp time.Time `json:"timestamp" validate:"required"`
+	Version   string    `json:"version" validate:"required"` // Event schema version (e.g., "1.0")
+	Source    string    `json:"source" validate:"required"`
 }
 
 // NewBaseEvent creates a new base event with generated ID and current timestamp.
@@ -36,7 +36,7 @@ func NewBaseEvent(eventType, source string) BaseEvent {
 		ID:        uuid.New().String(),
 		Type:      eventType,
 		Timestamp: time.Now().UTC(),
-		Version:   "1.0",
+		Version:   "1.0", // Event schema version
 		Source:    source,
 	}
 }
@@ -67,5 +67,6 @@ func (e BaseEvent) Validate() error {
 	if e.Timestamp.IsZero() {
 		return ErrInvalidEvent
 	}
+
 	return nil
 }
