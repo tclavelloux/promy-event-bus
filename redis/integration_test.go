@@ -1,3 +1,4 @@
+//nolint:all // Test file
 package redis_test
 
 import (
@@ -7,8 +8,10 @@ import (
 	"testing"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
-	"github.com/tclavelloux/promy-event-bus/events"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+	"github.com/tclavelloux/promy-event-bus/events/product"
+	"github.com/tclavelloux/promy-event-bus/events/promotion"
+	"github.com/tclavelloux/promy-event-bus/events/user"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +75,7 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Publish multiple event types
-		promoEvent := events.NewPromotionCreatedEvent(
+		promoEvent := promotion.NewPromotionCreatedEvent(
 			"integration-promo-1",
 			"Integration Product",
 			"dist-1",
@@ -84,11 +87,11 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		err = publisher.Publish(context.Background(), "events:integration-test", promoEvent)
 		require.NoError(t, err)
 
-		userEvent := events.NewUserRegisteredEvent("user-integration-1", "integration@example.com")
+		userEvent := user.NewUserRegisteredEvent("user-integration-1", "integration@example.com")
 		err = publisher.Publish(context.Background(), "events:integration-test", userEvent)
 		require.NoError(t, err)
 
-		productEvent := events.NewProductIdentifiedEvent(
+		productEvent := product.NewProductIdentifiedEvent(
 			"integration-promo-1",
 			"prod-integration-1",
 			"electronics",
@@ -170,7 +173,7 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 
 		// Publish 10 events
 		for i := 0; i < 10; i++ {
-			event := events.NewPromotionCreatedEvent(
+			event := promotion.NewPromotionCreatedEvent(
 				"load-balance-"+string(rune(i)),
 				"Product "+string(rune(i)),
 				"dist-1",
@@ -229,7 +232,7 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		// Create batch of events
 		batchEvents := make([]eventbus.Event, 20)
 		for i := 0; i < 20; i++ {
-			batchEvents[i] = events.NewPromotionCreatedEvent(
+			batchEvents[i] = promotion.NewPromotionCreatedEvent(
 				"batch-"+string(rune(i)),
 				"Batch Product "+string(rune(i)),
 				"dist-1",

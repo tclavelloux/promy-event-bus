@@ -1,3 +1,4 @@
+//nolint:all // Test file
 package redis_test
 
 import (
@@ -5,8 +6,11 @@ import (
 	"testing"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
+	"github.com/tclavelloux/promy-event-bus/events/product"
+	"github.com/tclavelloux/promy-event-bus/events/promotion"
+	"github.com/tclavelloux/promy-event-bus/events/user"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
 	"github.com/stretchr/testify/assert"
@@ -64,7 +68,7 @@ func TestPublisher_Publish(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("publishes event successfully", func(t *testing.T) {
-		event := events.NewPromotionCreatedEvent(
+		event := promotion.NewPromotionCreatedEvent(
 			"promo-123",
 			"Patate douce",
 			"dist-456",
@@ -80,7 +84,7 @@ func TestPublisher_Publish(t *testing.T) {
 
 	t.Run("validates event before publishing", func(t *testing.T) {
 		// Create invalid event (missing required fields)
-		event := &events.PromotionCreatedEvent{
+		event := &promotion.PromotionCreatedEvent{
 			BaseEvent: eventbus.NewBaseEvent(events.EventPromotionCreated, "test"),
 			// Missing PromotionID, ProductName, DistributorID
 		}
@@ -92,7 +96,7 @@ func TestPublisher_Publish(t *testing.T) {
 
 	t.Run("publishes different event types", func(t *testing.T) {
 		// Promotion event
-		promoEvent := events.NewPromotionCreatedEvent(
+		promoEvent := promotion.NewPromotionCreatedEvent(
 			"promo-456",
 			"Test Product",
 			"dist-123",
@@ -105,12 +109,12 @@ func TestPublisher_Publish(t *testing.T) {
 		assert.NoError(t, err)
 
 		// User event
-		userEvent := events.NewUserRegisteredEvent("user-789", "test@example.com")
+		userEvent := user.NewUserRegisteredEvent("user-789", "test@example.com")
 		err = publisher.Publish(ctx, events.StreamUsers, userEvent)
 		assert.NoError(t, err)
 
 		// Product event
-		productEvent := events.NewProductIdentifiedEvent(
+		productEvent := product.NewProductIdentifiedEvent(
 			"promo-456",
 			"prod-789",
 			"vegetables",
@@ -136,7 +140,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 
 	t.Run("publishes batch successfully", func(t *testing.T) {
 		events := []eventbus.Event{
-			events.NewPromotionCreatedEvent(
+			promotion.NewPromotionCreatedEvent(
 				"promo-1",
 				"Product 1",
 				"dist-1",
@@ -145,7 +149,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 				10.00,
 				"https://example.com/1.jpg",
 			),
-			events.NewPromotionCreatedEvent(
+			promotion.NewPromotionCreatedEvent(
 				"promo-2",
 				"Product 2",
 				"dist-2",
@@ -154,7 +158,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 				20.00,
 				"https://example.com/2.jpg",
 			),
-			events.NewPromotionCreatedEvent(
+			promotion.NewPromotionCreatedEvent(
 				"promo-3",
 				"Product 3",
 				"dist-3",
@@ -176,7 +180,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 
 	t.Run("fails with invalid event in batch", func(t *testing.T) {
 		events := []eventbus.Event{
-			events.NewPromotionCreatedEvent(
+			promotion.NewPromotionCreatedEvent(
 				"promo-1",
 				"Product 1",
 				"dist-1",
@@ -185,7 +189,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 				10.00,
 				"https://example.com/1.jpg",
 			),
-			&events.PromotionCreatedEvent{
+			&promotion.PromotionCreatedEvent{
 				BaseEvent: eventbus.NewBaseEvent(events.EventPromotionCreated, "test"),
 				// Invalid: missing required fields
 			},

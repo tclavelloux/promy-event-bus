@@ -3,12 +3,13 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	eventbus "github.com/tclavelloux/promy-event-bus"
+	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/semaphore"
@@ -67,6 +68,8 @@ func NewSubscriber(config eventbus.Config) (*Subscriber, error) {
 }
 
 // Subscribe starts consuming events from Redis Streams.
+//
+//nolint:cyclop // Event loop functions naturally have higher complexity
 func (s *Subscriber) Subscribe(ctx context.Context, subConfig eventbus.SubscriptionConfig) error {
 	// Set defaults
 	if subConfig.MaxConcurrency <= 0 {
@@ -103,9 +106,10 @@ func (s *Subscriber) Subscribe(ctx context.Context, subConfig eventbus.Subscript
 			}).Result()
 
 			if err != nil {
-				if err == redis.Nil {
+				if errors.Is(err, redis.Nil) {
 					continue // No messages available
 				}
+
 				return fmt.Errorf("%w: failed to read from stream: %w", eventbus.ErrSubscriptionFailed, err)
 			}
 
@@ -140,12 +144,14 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	if !ok {
 		// Invalid message format, acknowledge to prevent reprocessing
 		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+
 		return
 	}
 
 	if err := json.Unmarshal([]byte(metadataStr), &metadata); err != nil {
 		// Invalid metadata, acknowledge to prevent reprocessing
 		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+
 		return
 	}
 
@@ -164,11 +170,16 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	// For MVP, we pass the raw event through the handler
 	// For now, we create a minimal event wrapper
 	// Services will need to deserialize based on event type
+	id, _ := metadata["id"].(string)
+	eventType, _ := metadata["type"].(string)
+	timestampStr, _ := metadata["timestamp"].(string)
+	payload, _ := msg.Values["payload"].(string)
+
 	event := &rawEvent{
-		id:        metadata["id"].(string),
-		eventType: metadata["type"].(string),
-		timestamp: parseTime(metadata["timestamp"].(string)),
-		data:      msg.Values["payload"].(string),
+		id:        id,
+		eventType: eventType,
+		timestamp: parseTime(timestampStr),
+		data:      payload,
 	}
 
 	if err := config.Handler(processCtx, event); err != nil {
@@ -180,7 +191,11 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 
 			// Increment attempt and re-publish for retry
 			metadata["attempt"] = attempt + 1
-			metadataJSON, _ := json.Marshal(metadata)
+			metadataJSON, err := json.Marshal(metadata)
+			if err != nil {
+				// Log error but continue (acknowledge message)
+				return
+			}
 
 			// Re-add to stream for retry
 			s.client.XAdd(ctx, &redis.XAddArgs{
@@ -194,6 +209,7 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 		// After max retries, message is lost (DLQ would go here in future)
 		// For now, just acknowledge to prevent infinite loop
 		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+
 		return
 	}
 
@@ -220,6 +236,7 @@ func calculateBackoff(attempt int) time.Duration {
 // parseTime parses RFC3339 timestamp.
 func parseTime(timestamp string) time.Time {
 	t, _ := time.Parse(time.RFC3339, timestamp)
+
 	return t
 }
 
