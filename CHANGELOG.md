@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.2.1...v0.2.2) (2025-11-20)
+
+
+### Bug Fixes
+
+* **ci:** exclude component name from Git tags ([b047167](https://github.com/tclavelloux/promy-event-bus/commit/b047167d4e24d2688cf51fb688f7b1ffe7845bf3))
+
 ## [0.2.1](https://github.com/tclavelloux/promy-event-bus/compare/promy-event-bus-v0.2.0...promy-event-bus-v0.2.1) (2025-11-20)
 
 
