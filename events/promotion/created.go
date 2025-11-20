@@ -15,7 +15,7 @@ type PromotionCreatedEvent struct {
 	PromotionID   string    `json:"promotion_id"`
 	PromotionName string    `json:"promotion_name"`
 	DistributorID string    `json:"distributor_id"`
-	CategoryID    string    `json:"category_id"`
+	ProductTypeID string    `json:"product_type_id"`
 	Dates         []string  `json:"dates"`
 	Price         float64   `json:"price"`
 	ImageURL      string    `json:"image_url"`
@@ -24,7 +24,7 @@ type PromotionCreatedEvent struct {
 
 // NewPromotionCreatedEvent creates a new promotion created event.
 func NewPromotionCreatedEvent(
-	promotionID, promotionName, distributorID, categoryID string,
+	promotionID, promotionName, distributorID, productTypeID string,
 	dates []string,
 	price float64,
 	imageURL string,
@@ -34,7 +34,7 @@ func NewPromotionCreatedEvent(
 		PromotionID:   promotionID,
 		PromotionName: promotionName,
 		DistributorID: distributorID,
-		CategoryID:    categoryID,
+		ProductTypeID: productTypeID,
 		Dates:         dates,
 		Price:         price,
 		ImageURL:      imageURL,
