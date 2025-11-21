@@ -12,6 +12,7 @@ import (
 	"github.com/tclavelloux/promy-event-bus/events/product"
 	"github.com/tclavelloux/promy-event-bus/events/promotion"
 	"github.com/tclavelloux/promy-event-bus/events/user"
+	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
 	"github.com/stretchr/testify/assert"
@@ -79,10 +80,13 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 			"integration-promo-1",
 			"Integration Product",
 			"dist-1",
-			"cat-1",
-			[]string{"2025-11-06"},
+			"leaflet-1",
+			1,
 			19.99,
-			"https://example.com/integration.jpg",
+			ptr.String("cat-1"),
+			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.String("https://example.com/integration.jpg"),
+			ptr.Float64(24.99),
 		)
 		err = publisher.Publish(context.Background(), "events:integration-test", promoEvent)
 		require.NoError(t, err)
@@ -96,7 +100,7 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 			"prod-integration-1",
 			"electronics",
 			"cat-electronics",
-			"BrandX",
+			ptr.String("BrandX"),
 			0.92,
 		)
 		err = publisher.Publish(context.Background(), "events:integration-test", productEvent)
@@ -177,10 +181,13 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 				"load-balance-"+string(rune(i)),
 				"Product "+string(rune(i)),
 				"dist-1",
-				"cat-1",
-				[]string{"2025-11-06"},
-				float64(i)*5.0,
-				"https://example.com/test.jpg",
+				"leaflet-1",
+				1,
+				float64(i+1)*5.0, // Start at 5.0 to ensure price > 0
+				ptr.String("cat-1"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/test.jpg"),
+				ptr.Float64(float64(i+1)*5.0),
 			)
 			err = publisher.Publish(context.Background(), "events:load-balance-test", event)
 			require.NoError(t, err)
@@ -236,10 +243,13 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 				"batch-"+string(rune(i)),
 				"Batch Product "+string(rune(i)),
 				"dist-1",
-				"cat-1",
-				[]string{"2025-11-06"},
-				float64(i)*2.5,
-				"https://example.com/batch.jpg",
+				"leaflet-1",
+				1,
+				float64(i+1)*2.5, // Start at 2.5 to ensure price > 0
+				ptr.String("cat-1"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/batch.jpg"),
+				ptr.Float64(float64(i+1)*2.5),
 			)
 		}
 

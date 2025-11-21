@@ -11,6 +11,7 @@ import (
 	"github.com/tclavelloux/promy-event-bus/events/product"
 	"github.com/tclavelloux/promy-event-bus/events/promotion"
 	"github.com/tclavelloux/promy-event-bus/events/user"
+	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
 	"github.com/stretchr/testify/assert"
@@ -72,10 +73,13 @@ func TestPublisher_Publish(t *testing.T) {
 			"promo-123",
 			"Patate douce",
 			"dist-456",
-			"cat-789",
-			[]string{"2025-11-06"},
+			"leaflet-123",
+			1,
 			9.99,
-			"https://example.com/image.jpg",
+			ptr.String("cat-789"),
+			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.String("https://example.com/image.jpg"),
+			ptr.Float64(11.99),
 		)
 
 		err := publisher.Publish(ctx, "events:test", event)
@@ -100,10 +104,13 @@ func TestPublisher_Publish(t *testing.T) {
 			"promo-456",
 			"Test Product",
 			"dist-123",
-			"cat-456",
-			[]string{"2025-11-07"},
+			"leaflet-456",
+			1,
 			15.99,
-			"https://example.com/test.jpg",
+			ptr.String("cat-456"),
+			ptr.StringSlice([]string{"2025-11-07"}),
+			ptr.String("https://example.com/test.jpg"),
+			ptr.Float64(15.99),
 		)
 		err := publisher.Publish(ctx, events.StreamPromotions, promoEvent)
 		assert.NoError(t, err)
@@ -119,7 +126,7 @@ func TestPublisher_Publish(t *testing.T) {
 			"prod-789",
 			"vegetables",
 			"cat-123",
-			"BrandX",
+			ptr.String("BrandX"),
 			0.95,
 		)
 		err = publisher.Publish(ctx, events.StreamProducts, productEvent)
@@ -144,28 +151,37 @@ func TestPublisher_PublishBatch(t *testing.T) {
 				"promo-1",
 				"Product 1",
 				"dist-1",
-				"cat-1",
-				[]string{"2025-11-06"},
+				"leaflet-1",
+				1,
 				10.00,
-				"https://example.com/1.jpg",
+				ptr.String("cat-1"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/1.jpg"),
+				ptr.Float64(10.00),
 			),
 			promotion.NewPromotionCreatedEvent(
 				"promo-2",
 				"Product 2",
 				"dist-2",
-				"cat-2",
-				[]string{"2025-11-06"},
+				"leaflet-2",
+				2,
 				20.00,
-				"https://example.com/2.jpg",
+				ptr.String("cat-2"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/2.jpg"),
+				ptr.Float64(20.00),
 			),
 			promotion.NewPromotionCreatedEvent(
 				"promo-3",
 				"Product 3",
 				"dist-3",
-				"cat-3",
-				[]string{"2025-11-06"},
+				"leaflet-3",
+				3,
 				30.00,
-				"https://example.com/3.jpg",
+				ptr.String("cat-3"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/3.jpg"),
+				ptr.Float64(30.00),
 			),
 		}
 
@@ -184,10 +200,13 @@ func TestPublisher_PublishBatch(t *testing.T) {
 				"promo-1",
 				"Product 1",
 				"dist-1",
-				"cat-1",
-				[]string{"2025-11-06"},
+				"leaflet-1",
+				1,
 				10.00,
-				"https://example.com/1.jpg",
+				ptr.String("cat-1"),
+				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.String("https://example.com/1.jpg"),
+				ptr.Float64(10.00),
 			),
 			&promotion.PromotionCreatedEvent{
 				BaseEvent: eventbus.NewBaseEvent(events.EventPromotionCreated, "test"),
