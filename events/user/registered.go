@@ -1,8 +1,6 @@
 package user
 
 import (
-	"time"
-
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
 )
@@ -11,18 +9,16 @@ import (
 type UserRegisteredEvent struct {
 	eventbus.BaseEvent
 
-	UserID       string    `json:"user_id" validate:"required"`
-	Email        string    `json:"email" validate:"required,email"`
-	RegisteredAt time.Time `json:"registered_at" validate:"required"`
+	UserID string `json:"user_id" validate:"required"`
+	Email  string `json:"email" validate:"required,email"`
 }
 
 // NewUserRegisteredEvent creates a new user registered event.
 func NewUserRegisteredEvent(userID, email string) *UserRegisteredEvent {
 	return &UserRegisteredEvent{
-		BaseEvent:    eventbus.NewBaseEvent(events.EventUserRegistered, "promy-user"),
-		UserID:       userID,
-		Email:        email,
-		RegisteredAt: time.Now().UTC(),
+		BaseEvent: eventbus.NewBaseEvent(events.EventUserRegistered, "promy-user"),
+		UserID:    userID,
+		Email:     email,
 	}
 }
 

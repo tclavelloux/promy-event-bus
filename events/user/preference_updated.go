@@ -2,7 +2,6 @@ package user
 
 import (
 	"fmt"
-	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
@@ -12,10 +11,9 @@ import (
 type UserPreferencesUpdatedEvent struct {
 	eventbus.BaseEvent
 
-	UserID               string    `json:"user_id"`
-	FavoriteDistributors []string  `json:"favorite_distributors"`
-	FavoriteCategories   []string  `json:"favorite_categories"`
-	UpdatedAt            time.Time `json:"updated_at"`
+	UserID               string   `json:"user_id"`
+	FavoriteDistributors []string `json:"favorite_distributors"`
+	FavoriteCategories   []string `json:"favorite_categories"`
 }
 
 // NewUserPreferencesUpdatedEvent creates a new user preferences updated event.
@@ -28,7 +26,6 @@ func NewUserPreferencesUpdatedEvent(
 		UserID:               userID,
 		FavoriteDistributors: favoriteDistributors,
 		FavoriteCategories:   favoriteCategories,
-		UpdatedAt:            time.Now().UTC(),
 	}
 }
 

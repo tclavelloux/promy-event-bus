@@ -1,8 +1,6 @@
 package user
 
 import (
-	"time"
-
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
 )
@@ -11,10 +9,9 @@ import (
 type UserLocationUpdatedEvent struct {
 	eventbus.BaseEvent
 
-	UserID    string    `json:"user_id" validate:"required,min=1"`
-	Latitude  float64   `json:"latitude" validate:"required,min=-90,max=90"`
-	Longitude float64   `json:"longitude" validate:"required,min=-180,max=180"`
-	UpdatedAt time.Time `json:"updated_at" validate:"required"`
+	UserID    string  `json:"user_id" validate:"required,min=1"`
+	Latitude  float64 `json:"latitude" validate:"required,min=-90,max=90"`
+	Longitude float64 `json:"longitude" validate:"required,min=-180,max=180"`
 }
 
 // NewUserLocationUpdatedEvent creates a new user location updated event.
@@ -24,7 +21,6 @@ func NewUserLocationUpdatedEvent(userID string, latitude, longitude float64) *Us
 		UserID:    userID,
 		Latitude:  latitude,
 		Longitude: longitude,
-		UpdatedAt: time.Now().UTC(),
 	}
 }
 

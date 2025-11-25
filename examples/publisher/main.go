@@ -10,6 +10,7 @@ import (
 	"github.com/tclavelloux/promy-event-bus/events/product"
 	"github.com/tclavelloux/promy-event-bus/events/promotion"
 	"github.com/tclavelloux/promy-event-bus/events/user"
+	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
 )
 
@@ -44,10 +45,13 @@ func main() {
 		"promo-123",
 		"Patate douce",
 		"dist-456",
-		"cat-789",
-		[]string{"2025-11-06", "2025-11-07"},
+		"leaflet-123",
+		1,
 		9.99,
-		"https://example.com/patate-douce.jpg",
+		ptr.String("cat-789"), // ProductTypeID
+		ptr.StringSlice([]string{"2025-11-06", "2025-11-07"}), // Dates
+		ptr.String("https://example.com/patate-douce.jpg"),    // ImageURL
+		ptr.Float64(12.99), // OriginalPrice
 	)
 
 	if err := publisher.Publish(ctx, events.StreamPromotions, promoEvent); err != nil {
@@ -73,7 +77,7 @@ func main() {
 		"prod-456",
 		"vegetables",
 		"cat-789",
-		"BioMarket",
+		ptr.String("BioMarket"),
 		0.95,
 	)
 
@@ -90,28 +94,37 @@ func main() {
 			"promo-200",
 			"Pommes Golden",
 			"dist-101",
-			"cat-fruits",
-			[]string{"2025-11-06"},
+			"leaflet-200",
+			1,
 			3.99,
-			"https://example.com/pommes.jpg",
+			ptr.String("cat-fruits"),
+			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.String("https://example.com/pommes.jpg"),
+			ptr.Float64(4.99),
 		),
 		promotion.NewPromotionCreatedEvent(
 			"promo-201",
 			"Bananes",
 			"dist-101",
-			"cat-fruits",
-			[]string{"2025-11-06"},
+			"leaflet-200",
+			2,
 			2.49,
-			"https://example.com/bananes.jpg",
+			ptr.String("cat-fruits"),
+			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.String("https://example.com/bananes.jpg"),
+			ptr.Float64(3.49),
 		),
 		promotion.NewPromotionCreatedEvent(
 			"promo-202",
 			"Oranges",
 			"dist-101",
-			"cat-fruits",
-			[]string{"2025-11-06"},
+			"leaflet-200",
+			3,
 			4.99,
-			"https://example.com/oranges.jpg",
+			ptr.String("cat-fruits"),
+			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.String("https://example.com/oranges.jpg"),
+			ptr.Float64(5.99),
 		),
 	}
 

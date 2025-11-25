@@ -2,7 +2,6 @@ package promotion
 
 import (
 	"fmt"
-	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
@@ -12,9 +11,8 @@ import (
 type PromotionUpdatedEvent struct {
 	eventbus.BaseEvent
 
-	PromotionID   string    `json:"promotion_id"`
-	UpdatedFields []string  `json:"updated_fields"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	PromotionID   string   `json:"promotion_id"`
+	UpdatedFields []string `json:"updated_fields"`
 }
 
 // NewPromotionUpdatedEvent creates a new promotion updated event.
@@ -23,7 +21,6 @@ func NewPromotionUpdatedEvent(promotionID string, updatedFields []string) *Promo
 		BaseEvent:     eventbus.NewBaseEvent(events.EventPromotionUpdated, "promy-product"),
 		PromotionID:   promotionID,
 		UpdatedFields: updatedFields,
-		UpdatedAt:     time.Now().UTC(),
 	}
 }
 
