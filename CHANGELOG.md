@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.3.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.2.1...v0.3.0) (2025-11-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **events:** NewPromotionCreatedEvent signature changed from (promotionID, promotionName, distributorID, productTypeID string, dates []string, price float64, imageURL string) to (promotionID, promotionName, distributorID string, price float64, productTypeID *string, dates *[]string, imageURL *string, originalPrice *float64)
+
+### Features
+
+* **events:** add nullable fields to PromotionCreatedEvent ([f2c4ec7](https://github.com/tclavelloux/promy-event-bus/commit/f2c4ec7c74708298770b504d44334dbd8f72a77f))
+* **pkg:** add ptr package for nullable field helpers ([adcc02b](https://github.com/tclavelloux/promy-event-bus/commit/adcc02b34b7f7db0333a6454cb2b8acebacc080e))
+
+
+### Bug Fixes
+
+* **ci:** exclude component name from Git tags ([b047167](https://github.com/tclavelloux/promy-event-bus/commit/b047167d4e24d2688cf51fb688f7b1ffe7845bf3))
+
+
+### Tests
+
+* **redis:** update tests for nullable event fields ([24b0853](https://github.com/tclavelloux/promy-event-bus/commit/24b0853eb756bee5c7b43378f12f2bf469146e8d))
+
+
+### Documentation
+
+* **examples:** update publisher example for nullable event fields ([ca8ebcd](https://github.com/tclavelloux/promy-event-bus/commit/ca8ebcdf6f3e6c53a06cae5ca33c3f67a987128b))
+
 ## [0.2.1](https://github.com/tclavelloux/promy-event-bus/compare/promy-event-bus-v0.2.0...promy-event-bus-v0.2.1) (2025-11-20)
 
 
