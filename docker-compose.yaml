@@ -17,6 +17,7 @@ services:
 
 networks:
   eventbus-network:
+    name: eventbus-network  # forces exact name
     driver: bridge
 
 volumes:
