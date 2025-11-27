@@ -421,45 +421,6 @@ make vet
 make clean
 ```
 
-## Deployment
-
-### Railway Deployment
-
-This repository can be deployed to Railway as a Redis service that your applications connect to.
-
-**Files for Railway:**
-- `Dockerfile` - Builds Redis 7 Alpine container with persistence
-- `railway.json` - Railway deployment configuration
-
-**Setup:**
-1. Connect this repository to Railway
-2. Railway will automatically detect and build the Dockerfile
-3. Note the internal URL provided by Railway (e.g., `redis.railway.internal:6379`)
-4. Configure your services to connect:
-
-```env
-# In promy-user and promy-product Railway services
-REDIS_TRACKING_HOST=<redis-service-url>
-REDIS_TRACKING_PORT=6379
-REDIS_TRACKING_DB=0
-```
-
-**Features:**
-- ✅ Append-only file (AOF) persistence enabled
-- ✅ Data persists across container restarts
-- ✅ Automatic restart on failure
-- ✅ Health checks via Redis ping
-
-### Local Development
-
-```bash
-# Start Redis for local testing
-docker compose up -d
-
-# Redis will be available at localhost:6379
-# Services can connect via docker network: promy-redis:6379
-```
-
 ## Roadmap
 
 - [x] Redis Streams implementation
