@@ -116,7 +116,8 @@ func TestSubscriber_Subscribe(t *testing.T) {
 			1,
 			12.99,
 			ptr.String("cat-test"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			nil,
+			nil,
 			ptr.String("https://example.com/test.jpg"),
 			ptr.Float64(12.99),
 		)
@@ -178,7 +179,8 @@ func TestSubscriber_Subscribe(t *testing.T) {
 				1,
 				float64(i+1)*10.0, // Start at 10.0 to ensure price > 0
 				ptr.String("cat-1"),
-				ptr.StringSlice([]string{"2025-11-06"}),
+				nil,
+				nil,
 				ptr.String("https://example.com/test.jpg"),
 				ptr.Float64(float64(i+1)*10.0),
 			)
@@ -236,7 +238,8 @@ func TestSubscriber_Subscribe(t *testing.T) {
 			1,
 			9.99,
 			ptr.String("cat-1"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			nil,
+			nil,
 			ptr.String("https://example.com/retry.jpg"),
 			ptr.Float64(9.99),
 		)

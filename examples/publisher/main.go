@@ -49,7 +49,8 @@ func main() {
 		1,
 		9.99,
 		ptr.String("cat-789"), // ProductTypeID
-		ptr.StringSlice([]string{"2025-11-06", "2025-11-07"}), // Dates
+		ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)), // ValidFrom
+		ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)), // ValidTo
 		ptr.String("https://example.com/patate-douce.jpg"),    // ImageURL
 		ptr.Float64(12.99), // OriginalPrice
 	)
@@ -98,7 +99,8 @@ func main() {
 			1,
 			3.99,
 			ptr.String("cat-fruits"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
 			ptr.String("https://example.com/pommes.jpg"),
 			ptr.Float64(4.99),
 		),
@@ -110,7 +112,8 @@ func main() {
 			2,
 			2.49,
 			ptr.String("cat-fruits"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
 			ptr.String("https://example.com/bananes.jpg"),
 			ptr.Float64(3.49),
 		),
@@ -122,7 +125,8 @@ func main() {
 			3,
 			4.99,
 			ptr.String("cat-fruits"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
+			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
 			ptr.String("https://example.com/oranges.jpg"),
 			ptr.Float64(5.99),
 		),
