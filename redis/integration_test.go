@@ -84,7 +84,8 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 			1,
 			19.99,
 			ptr.String("cat-1"),
-			ptr.StringSlice([]string{"2025-11-06"}),
+			ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
+			ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
 			ptr.String("https://example.com/integration.jpg"),
 			ptr.Float64(24.99),
 		)
@@ -185,7 +186,8 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 				1,
 				float64(i+1)*5.0, // Start at 5.0 to ensure price > 0
 				ptr.String("cat-1"),
-				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
+				ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
 				ptr.String("https://example.com/test.jpg"),
 				ptr.Float64(float64(i+1)*5.0),
 			)
@@ -247,7 +249,8 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 				1,
 				float64(i+1)*2.5, // Start at 2.5 to ensure price > 0
 				ptr.String("cat-1"),
-				ptr.StringSlice([]string{"2025-11-06"}),
+				ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
+				ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
 				ptr.String("https://example.com/batch.jpg"),
 				ptr.Float64(float64(i+1)*2.5),
 			)

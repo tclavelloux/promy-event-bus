@@ -22,10 +22,11 @@ type PromotionCreatedEvent struct {
 	CreatedAt       time.Time `json:"created_at"`
 
 	// Optional fields - nullable to preserve source semantics
-	ProductTypeID *string   `json:"product_type_id,omitempty"` // May not be identified yet
-	Dates         *[]string `json:"dates,omitempty"`           // nil=pending, []=unrestricted, values=specific dates
-	ImageURL      *string   `json:"image_url,omitempty"`       // May not have image
-	OriginalPrice *float64  `json:"original_price,omitempty"`  // For discount calculation
+	ProductTypeID *string    `json:"product_type_id,omitempty"` // May not be identified yet
+	ValidFrom     *time.Time `json:"valid_from,omitempty"`      // nil=pending, values=specific date
+	ValidTo       *time.Time `json:"valid_to,omitempty"`        // nil=pending, values=specific date
+	ImageURL      *string    `json:"image_url,omitempty"`       // May not have image
+	OriginalPrice *float64   `json:"original_price,omitempty"`  // For discount calculation
 }
 
 // NewPromotionCreatedEvent creates a new promotion created event.
@@ -37,7 +38,8 @@ func NewPromotionCreatedEvent(
 	leafletPage int,
 	discountedPrice float64,
 	productTypeID *string,
-	dates *[]string,
+	validFrom *time.Time,
+	validTo *time.Time,
 	imageURL *string,
 	originalPrice *float64,
 ) *PromotionCreatedEvent {
@@ -50,7 +52,8 @@ func NewPromotionCreatedEvent(
 		LeafletPage:     leafletPage,
 		DiscountedPrice: discountedPrice,
 		ProductTypeID:   productTypeID,
-		Dates:           dates,
+		ValidFrom:       validFrom,
+		ValidTo:         validTo,
 		ImageURL:        imageURL,
 		OriginalPrice:   originalPrice,
 		CreatedAt:       time.Now().UTC(),
