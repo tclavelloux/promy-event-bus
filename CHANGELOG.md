@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.0...v0.3.1) (2025-12-13)
+
+
+### Features
+
+* **deploy:** add Railway deployment for Redis service ([93d02a6](https://github.com/tclavelloux/promy-event-bus/commit/93d02a6062b52e8368b9debd2d97cdd1e0fb5a9f))
+* **events:** update promotion event date handling ([fb954e0](https://github.com/tclavelloux/promy-event-bus/commit/fb954e033ac6dc69cdd76376b984024dba0a0f00))
+* **events:** update promotion event date handling ([2af8ee4](https://github.com/tclavelloux/promy-event-bus/commit/2af8ee4a95ea9908828d9f42e785076f03cb6a52))
+
+
+### Documentation
+
+* **deploy:** add Railway deployment guide ([1fc959c](https://github.com/tclavelloux/promy-event-bus/commit/1fc959c7cbb57ec463c15a2cf963b596247eec2e))
+
 ## [0.3.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.2.1...v0.3.0) (2025-11-25)
 
 
