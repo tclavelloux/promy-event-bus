@@ -5,7 +5,7 @@ services:
     networks:
       - eventbus-network
     ports:
-      - "6379:6379"
+      - "6389:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
