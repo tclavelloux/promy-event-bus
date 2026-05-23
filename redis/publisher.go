@@ -11,6 +11,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	fieldMetadata = "metadata"
+	fieldPayload  = "payload"
+)
+
 // Publisher implements EventPublisher for Redis Streams.
 type Publisher struct {
 	client *redis.Client
@@ -98,8 +103,8 @@ func (p *Publisher) Publish(ctx context.Context, stream string, event eventbus.E
 	args := &redis.XAddArgs{
 		Stream: stream,
 		Values: map[string]any{
-			"metadata": string(metadataJSON),
-			"payload":  string(payloadJSON),
+			fieldMetadata: string(metadataJSON),
+			fieldPayload:  string(payloadJSON),
 		},
 	}
 
@@ -149,8 +154,8 @@ func (p *Publisher) PublishBatch(ctx context.Context, stream string, events []ev
 		pipe.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,
 			Values: map[string]any{
-				"metadata": string(metadataJSON),
-				"payload":  string(payloadJSON),
+				fieldMetadata: string(metadataJSON),
+				fieldPayload:  string(payloadJSON),
 			},
 		})
 	}
