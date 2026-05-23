@@ -23,19 +23,19 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
-.PHONY: docker-up
-docker-up:
+.PHONY: up
+up:
 	@echo "Starting Redis..."
 	docker-compose up -d
-	@echo "Redis is running on localhost:6379"
+	@echo "Redis is now running"
 
-.PHONY: docker-down
-docker-down:
+.PHONY: down
+down:
 	@echo "Stopping Docker services..."
 	docker-compose down -v
 
-.PHONY: docker-logs
-docker-logs:
+.PHONY: logs
+logs:
 	docker-compose logs -f
 
 .PHONY: lint
@@ -82,9 +82,9 @@ help:
 	@echo "  test-integration     - Run tests with Redis via Docker"
 	@echo "  test-short          - Run tests excluding integration tests"
 	@echo "  coverage            - Generate test coverage report"
-	@echo "  docker-up           - Start Redis via Docker Compose"
-	@echo "  docker-down         - Stop Docker services"
-	@echo "  docker-logs         - View Docker logs"
+	@echo "  up                  - Start Redis via Docker Compose"
+	@echo "  down                - Stop Docker services"
+	@echo "  logs                - View Docker logs"
 	@echo "  lint                - Run golangci-lint"
 	@echo "  fmt                 - Format code with go fmt"
 	@echo "  vet                 - Run go vet"

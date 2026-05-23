@@ -201,8 +201,8 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 			s.client.XAdd(ctx, &redis.XAddArgs{
 				Stream: config.Stream,
 				Values: map[string]any{
-					"metadata": string(metadataJSON),
-					"payload":  msg.Values["payload"],
+					fieldMetadata: string(metadataJSON),
+					fieldPayload:  msg.Values[fieldPayload],
 				},
 			})
 		}
