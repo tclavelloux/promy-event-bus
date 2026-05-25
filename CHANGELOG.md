@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.4.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.1...v0.4.0) (2026-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* The events/ package (event structs, type constants) is removed. Each producing service now owns its own event definitions in internal/events/. Stream name constants move to the streams/ package.
+
+### Features
+
+* **ci:** add registry validation script and GitHub Actions workflow ([7fe60a1](https://github.com/tclavelloux/promy-event-bus/commit/7fe60a19dd4244044cb7e19328faf9ba738f802f))
+* create event schema registry with seed events ([7bbd3ae](https://github.com/tclavelloux/promy-event-bus/commit/7bbd3aed1ee9c2cb5bacba1e908f613fd4c475cc))
+* **dlq:** add inspect and replay CLI tool ([5e0c7bf](https://github.com/tclavelloux/promy-event-bus/commit/5e0c7bf0b687bd6851349fc8f5f6f5b03d3cd37c))
+* **eventbus:** add Data() string to Event interface ([1d2982a](https://github.com/tclavelloux/promy-event-bus/commit/1d2982a2dffac5fa419ba1aaa09e341fc2e43287))
+* **eventbus:** add DLQ entry helper and subscriber routing ([bebeea4](https://github.com/tclavelloux/promy-event-bus/commit/bebeea40b4ddf6998539b60cbdbb2ab3ae6440d0))
+* **streams:** add StreamSubscriptions, StreamIdentifications, and StreamDLQ constants ([4548cb9](https://github.com/tclavelloux/promy-event-bus/commit/4548cb91e76552e755b0746cefedecd681ef745e))
+
+
+### Code Refactoring
+
+* **redis:** extract metadata and payload field names as constants ([6fa0c08](https://github.com/tclavelloux/promy-event-bus/commit/6fa0c08a4421b705743fe3fab224b616e311786c))
+* remove events/ package, move stream constants to streams/ ([0489f74](https://github.com/tclavelloux/promy-event-bus/commit/0489f74a4c0b01fe681e79e47e5eb2eb9ecd7cc0))
+
+
+### Build System
+
+* **docker:** change Redis host port from 6379 to 6389 ([1cc5002](https://github.com/tclavelloux/promy-event-bus/commit/1cc50023a00603f48498b1a2b916b24d453d52c5))
+* **make:** shorten docker compose target names ([23ed925](https://github.com/tclavelloux/promy-event-bus/commit/23ed9258a45b2c299910cfccc206c256f09a5797))
+
+
+### Documentation
+
+* add CLAUDE.md with codebase guidance for Claude Code ([e2bd077](https://github.com/tclavelloux/promy-event-bus/commit/e2bd077804220685ac7abd42df1d87a7f1af3791))
+* add integration guide for downstream Yokai services ([33379d4](https://github.com/tclavelloux/promy-event-bus/commit/33379d42d3d3e8ebe1e3b90e8d378d023219588b))
+* replace HOWTO with v2.1 ([5fde8a9](https://github.com/tclavelloux/promy-event-bus/commit/5fde8a9395311d5277c72b9864e7a5af2f641235))
+* rewrite README to reflect current architecture ([b2a5189](https://github.com/tclavelloux/promy-event-bus/commit/b2a51890c754b99f36a3a59ed2fb205f1998f5e9))
+* update README and HOWTO for DLQ routing ([6356271](https://github.com/tclavelloux/promy-event-bus/commit/63562717cafa6b928115df8786115b8a4986d41a))
+
+
+### Miscellaneous
+
+* **cursor:** remove tracked cursor rules and docs from repo ([6926110](https://github.com/tclavelloux/promy-event-bus/commit/69261107ae8b1a27af84c384df854d6876a30c1f))
+* **cursor:** remove tracked cursor rules and docs from repo ([036215e](https://github.com/tclavelloux/promy-event-bus/commit/036215ef25250dc3f51e79233e552220926ef63d))
+* **docs:** remove outdated cursor git workflow docs ([dc45743](https://github.com/tclavelloux/promy-event-bus/commit/dc457430cad2aa7855495e5d1e0d1cf823bb1fbb))
+* **gh actions:** wire token ([363ef5b](https://github.com/tclavelloux/promy-event-bus/commit/363ef5b9550abdd908f9631d4710f8817dd25278))
+* **gh actions:** wire token ([0100449](https://github.com/tclavelloux/promy-event-bus/commit/01004499732a860af61e6d5e09dfc95c68e146ba))
+* port infrastructure and tooling adaptations ([f9a12cd](https://github.com/tclavelloux/promy-event-bus/commit/f9a12cdf9aedd01ae6af541112af2de32c1d1540))
+
 ## [0.3.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.0...v0.3.1) (2025-12-13)
 
 
