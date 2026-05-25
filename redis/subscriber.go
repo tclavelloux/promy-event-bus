@@ -10,6 +10,7 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+	"github.com/tclavelloux/promy-event-bus/streams"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/semaphore"
@@ -182,7 +183,7 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 		data:      payload,
 	}
 
-	if err := config.Handler(processCtx, event); err != nil {
+	if handlerErr := config.Handler(processCtx, event); handlerErr != nil {
 		// Handle retry logic
 		if attempt < 3 { // Max 3 attempts
 			// Calculate backoff
@@ -205,9 +206,11 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 					fieldPayload:  msg.Values[fieldPayload],
 				},
 			})
+		} else if config.DLQPublisher != nil {
+			dlqEntry := eventbus.NewDLQEntry(config.Stream, event, handlerErr, config.DLQService, attempt)
+			_ = config.DLQPublisher.Publish(ctx, streams.StreamDLQ, dlqEntry)
 		}
-		// After max retries, message is lost (DLQ would go here in future)
-		// For now, just acknowledge to prevent infinite loop
+
 		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
 
 		return
