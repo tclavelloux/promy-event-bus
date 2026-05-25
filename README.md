@@ -126,7 +126,7 @@ Stream constants live in the `streams` package:
 | Stream | Owner | Purpose |
 |--------|-------|---------|
 | `events:users` | promy-user | User lifecycle events |
-| `events:subscriptions` | promy-user | Subscription lifecycle events |
+| `events:subscriptions` | promy-subscription | Subscription lifecycle events |
 | `events:promotions` | promy-product | Promotion events |
 | `events:products` | promy-product | Product catalogue events |
 | `events:identifications` | promy-identifier | AI identification results |
@@ -290,3 +290,5 @@ make help              # list all targets
 - [promy-user](https://github.com/tclavelloux/promy-user) - User management service
 - [promy-identifier](https://github.com/tclavelloux/promy-identifier) - AI product identification service
 - [promy-crm](https://github.com/tclavelloux/promy-crm) - CRM service
+
+<!-- readme-updated-at: b2a5189 -->

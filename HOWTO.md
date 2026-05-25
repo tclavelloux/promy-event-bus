@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.2 - publish-before-commit pattern for Tier 1 (May 2026)
+> **Version**: 2.3 - DLQ routing and replay tooling (May 2026)
 >
 > **Changelog:**
+> - v2.3: DLQ routing is now automatic via `DLQPublisher` on `SubscriptionConfig`; added DLQ section; updated worker example with DLQ fields; removed stale `Data()` prerequisite warning; fixed `EventTime()` method name in examples
 > - v2.2: Tier 1 publish pattern documented as "publish-before-commit" (publish inside open DB transaction, commit only after Redis confirms); replaces naive synchronous publish that had a partial-failure window; transactional outbox deferred to Phase 7
 > - v2.1: Stream ownership map - consumers column removed (each service manages its own subscriptions independently); `events:products` ownership corrected to `promy-product`; `events:identifications` added as `promy-identifier`'s own stream; single-owner rule made explicit
 > - v2.0: `promy-event-bus` scope reduced to infrastructure only - event payload structs moved to each service; `Data() string` added to `Event` interface; tiers renamed (Tier 1 = critical, Tier 2 = best-effort); DLQ introduced; consumer DTOs replace shared event structs; per-stream config structure cleaned up
@@ -18,16 +19,17 @@
 5. [Configuration](#configuration)
 6. [Docker Compose Setup](#docker-compose-setup)
 7. [Event Criticality Tiers](#event-criticality-tiers)
-8. [Publisher Integration](#publisher-integration)
-9. [Subscriber Integration](#subscriber-integration)
-10. [Multi-Stream Worker Topology](#multi-stream-worker-topology)
-11. [FX Wiring & Registration](#fx-wiring--registration)
-12. [Bootstrap & TestBootstrapper](#bootstrap--testbootstrapper)
-13. [Testing Strategy](#testing-strategy)
-14. [Graceful Degradation](#graceful-degradation)
-15. [Reference: Naming Conventions](#reference-naming-conventions)
-16. [Reference: Config Keys](#reference-config-keys)
-17. [FAQ](#faq)
+8. [Dead-Letter Queue (DLQ)](#dead-letter-queue-dlq)
+9. [Publisher Integration](#publisher-integration)
+10. [Subscriber Integration](#subscriber-integration)
+11. [Multi-Stream Worker Topology](#multi-stream-worker-topology)
+12. [FX Wiring & Registration](#fx-wiring--registration)
+13. [Bootstrap & TestBootstrapper](#bootstrap--testbootstrapper)
+14. [Testing Strategy](#testing-strategy)
+15. [Graceful Degradation](#graceful-degradation)
+16. [Reference: Naming Conventions](#reference-naming-conventions)
+17. [Reference: Config Keys](#reference-config-keys)
+18. [FAQ](#faq)
 
 ---
 
@@ -105,24 +107,6 @@ every schema change in `promy-user` forces a `promy-crm` update, even for fields
 CRM does not use. Consumer DTOs only declare the fields the consumer actually needs -
 unknown fields are silently ignored during JSON unmarshalling.
 
-### [WARNING] Prerequisite: `Data() string` must be added to the `Event` interface
-
-The current `Event` interface in `promy-event-bus` does not expose the raw JSON payload.
-**This must be fixed before any subscriber can deserialize event data.**
-
-```go
-// promy-event-bus/eventbus/event.go -- required change
-type Event interface {
-    EventID()   string
-    EventType() string
-    Timestamp() time.Time
-    Data()      string  // ADD THIS: returns the raw JSON payload string
-}
-```
-
-Open a PR on `promy-event-bus` with this change before integrating any subscriber
-that needs to act on event content (which is most of them).
-
 ---
 
 ## Stream Ownership Map
@@ -154,7 +138,7 @@ is each consuming service's own concern - it is not tracked here.
 - The shared Redis instance is running via `promy-event-bus`'s docker-compose (`eventbus-network`)
 - You have identified whether your service is a **publisher**, a **subscriber**, or **both**
 - You have identified the **criticality tier** of each event your service produces (see Event Criticality Tiers)
-- **`promy-event-bus` has `Data() string` on its `Event` interface** - do not start subscriber implementation without this
+- `promy-event-bus` exposes `Data() string` on its `Event` interface (already shipped)
 
 ---
 
@@ -348,6 +332,50 @@ func (s *DefaultService) StartSubscription(ctx context.Context, sub *Subscriptio
 
 ---
 
+## Dead-Letter Queue (DLQ)
+
+DLQ routing is built into the subscriber. When a Tier 1 event exhausts all 3 retry attempts,
+the subscriber automatically wraps it in a `DLQEntry` and publishes it to `events:dlq`.
+
+### Enabling DLQ routing
+
+Set `DLQPublisher` and `DLQService` on your `SubscriptionConfig`:
+
+```go
+dlqPublisher, _ := redis.NewPublisher(redisConfig)
+
+subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
+    Stream:       promystreams.StreamUsers,
+    // ... other fields ...
+    DLQPublisher: dlqPublisher, // nil = silent drop (Tier 2 default)
+    DLQService:   "promy-crm",
+})
+```
+
+- **Tier 1 streams:** always set `DLQPublisher` so failed events are preserved for replay.
+- **Tier 2 streams:** leave `DLQPublisher` as `nil` — events are dropped after max retries (acceptable for best-effort).
+
+### What happens automatically
+
+1. Handler returns error 3 times (backoff: 0 ms, 100 ms, 500 ms)
+2. Subscriber creates a `DLQEntry` via `eventbus.NewDLQEntry(stream, event, err, service, attempts)`
+3. `DLQEntry` is published to `streams.StreamDLQ` (`events:dlq`)
+4. Original message is ACKed
+
+The handler does not need to handle DLQ logic itself — just return errors for retriable failures.
+
+### Operator tooling
+
+```bash
+make dlq-inspect                          # stats: length, breakdown by stream/type/service
+make dlq-replay stream=events:users       # replay all entries for a stream
+make dlq-replay type=user.registered      # replay by event type
+make dlq-replay id=1685000000000-0        # replay single entry by Redis message ID
+make dlq-replay all=true dry-run=true     # dry-run: list without replaying
+```
+
+---
+
 ## Publisher Integration
 
 ### Defining events in your service
@@ -402,16 +430,17 @@ func NewUserRegisteredEvent(userID, email string) *UserRegisteredEvent {
 }
 
 // Implement eventbus.Event interface
-func (e *UserRegisteredEvent) EventID()   string    { return e.id }
+func (e *UserRegisteredEvent) EventID() string      { return e.id }
 func (e *UserRegisteredEvent) EventType() string    { return EventUserRegistered }
-func (e *UserRegisteredEvent) Timestamp() time.Time { return e.createdAt }
-func (e *UserRegisteredEvent) Data()      string {
+func (e *UserRegisteredEvent) EventTime() time.Time { return e.createdAt }
+func (e *UserRegisteredEvent) Data() string {
     b, _ := json.Marshal(map[string]string{
         "user_id": e.userID,
         "email":   e.email,
     })
     return string(b)
 }
+func (e *UserRegisteredEvent) Validate() error { return nil }
 ```
 
 ### File: `internal/infra/eventbus/publisher.go`
@@ -642,16 +671,18 @@ import (
 
 // UsersWorker subscribes to all events on events:users.
 type UsersWorker struct {
-    subscriber eventbus.EventSubscriber
-    config     *config.Config
+    subscriber   eventbus.EventSubscriber
+    dlqPublisher eventbus.EventPublisher
+    config       *config.Config
     // emailService email.Service  <-- inject domain services here
 }
 
 func NewUsersWorker(
     subscriber eventbus.EventSubscriber,
+    dlqPublisher eventbus.EventPublisher,
     config *config.Config,
 ) *UsersWorker {
-    return &UsersWorker{subscriber: subscriber, config: config}
+    return &UsersWorker{subscriber: subscriber, dlqPublisher: dlqPublisher, config: config}
 }
 
 func (w *UsersWorker) Name() string { return "users-subscriber" }
@@ -675,6 +706,9 @@ func (w *UsersWorker) Run(ctx context.Context) error {
         BlockDuration:  w.config.GetDuration("modules.event_bus.consumer.defaults.block_duration"),
         // Per-stream override: events:users requires strict ordering
         MaxConcurrency: w.config.GetInt("modules.event_bus.consumer.streams.events:users.max_concurrency"),
+        // Tier 1 stream: route to DLQ after exhausting retries
+        DLQPublisher: w.dlqPublisher,
+        DLQService:   "promy-crm",
     })
 }
 
@@ -787,20 +821,19 @@ is negligible at current scale.
 | Tier 2 | `error` | Subscriber retries (3x), then drops (logs warning) |
 | Any tier | `nil` for unknown type | ACKed immediately, no retry |
 
-For Tier 1 events, route to DLQ after exhausting retries:
+For Tier 1 events, DLQ routing is **automatic** when `DLQPublisher` is set on `SubscriptionConfig`.
+After 3 failed attempts, the subscriber wraps the event in a `DLQEntry` (via `eventbus.NewDLQEntry()`)
+and publishes it to `streams.StreamDLQ`. The handler does **not** need to manage DLQ logic itself — just return an error to trigger retries:
 
 ```go
 func (w *SubscriptionsWorker) handleEvent(ctx context.Context, event eventbus.Event) error {
-    err := w.processEvent(ctx, event)
-    if err != nil {
-        // Tier 1: route to DLQ -- returning nil ACKs the original message.
-        // The DLQ entry is now the retry surface for ops/automated replay.
-        w.dlqPublisher.Publish(context.Background(), "events:dlq", wrapDLQ(event, err))
-        return nil
-    }
-    return nil
+    // Return error = subscriber retries (3x), then routes to DLQ automatically.
+    // Return nil = ACK immediately.
+    return w.processEvent(ctx, event)
 }
 ```
+
+Operators inspect and replay DLQ entries with `make dlq-inspect` and `make dlq-replay`.
 
 ### Topology diagram
 
