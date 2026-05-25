@@ -1,6 +1,7 @@
 package user
 
 import (
+	"encoding/json"
 	"fmt"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
@@ -27,6 +28,13 @@ func NewUserPreferencesUpdatedEvent(
 		FavoriteDistributors: favoriteDistributors,
 		FavoriteCategories:   favoriteCategories,
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *UserPreferencesUpdatedEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the user preferences updated event.

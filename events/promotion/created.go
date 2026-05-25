@@ -1,6 +1,7 @@
 package promotion
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -58,6 +59,13 @@ func NewPromotionCreatedEvent(
 		OriginalPrice:   originalPrice,
 		CreatedAt:       time.Now().UTC(),
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *PromotionCreatedEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the promotion created event.

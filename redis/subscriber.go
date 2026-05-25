@@ -261,4 +261,5 @@ type rawEvent struct {
 func (e *rawEvent) EventType() string    { return e.eventType }
 func (e *rawEvent) EventID() string      { return e.id }
 func (e *rawEvent) EventTime() time.Time { return e.timestamp }
+func (e *rawEvent) Data() string         { return e.data }
 func (e *rawEvent) Validate() error      { return nil }

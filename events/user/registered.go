@@ -1,6 +1,8 @@
 package user
 
 import (
+	"encoding/json"
+
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
 )
@@ -20,6 +22,13 @@ func NewUserRegisteredEvent(userID, email string) *UserRegisteredEvent {
 		UserID:    userID,
 		Email:     email,
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *UserRegisteredEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the user registered event using struct tags.

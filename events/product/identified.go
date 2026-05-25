@@ -1,6 +1,7 @@
 package product
 
 import (
+	"encoding/json"
 	"fmt"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
@@ -37,6 +38,13 @@ func NewProductIdentifiedEvent(
 		Brand:       brand,
 		Confidence:  confidence,
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *ProductIdentifiedEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the product identified event.

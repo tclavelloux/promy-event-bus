@@ -1,6 +1,7 @@
 package promotion
 
 import (
+	"encoding/json"
 	"fmt"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
@@ -22,6 +23,13 @@ func NewPromotionUpdatedEvent(promotionID string, updatedFields []string) *Promo
 		PromotionID:   promotionID,
 		UpdatedFields: updatedFields,
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *PromotionUpdatedEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the promotion updated event.

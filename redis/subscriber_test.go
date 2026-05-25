@@ -3,12 +3,14 @@ package redis_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events/promotion"
+	"github.com/tclavelloux/promy-event-bus/events/user"
 	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
 
@@ -305,5 +307,90 @@ func TestSubscriber_Close(t *testing.T) {
 
 		err = subscriber.Close()
 		assert.NoError(t, err)
+	})
+}
+
+func TestSubscriber_EventData(t *testing.T) {
+	config := eventbus.Config{
+		Redis: eventbus.RedisConfig{
+			DSN: "redis://localhost:6379/1",
+		},
+		Consumer: eventbus.ConsumerConfig{
+			Group:          "test-data-group",
+			ConsumerID:     "test-data-consumer",
+			BlockDuration:  1 * time.Second,
+			BatchSize:      10,
+			MaxConcurrency: 1,
+		},
+	}
+
+	t.Run("subscriber handler can read and unmarshal event.Data()", func(t *testing.T) {
+		subscriber, err := redis.NewSubscriber(config)
+		require.NoError(t, err)
+		defer subscriber.Close()
+
+		publisher, err := redis.NewPublisher(config.Redis)
+		require.NoError(t, err)
+		defer publisher.Close()
+
+		type userDTO struct {
+			UserID string `json:"user_id"`
+			Email  string `json:"email"`
+		}
+
+		received := make(chan userDTO, 1)
+
+		handler := func(ctx context.Context, event eventbus.Event) error {
+			assert.NotEmpty(t, event.Data(), "Data() should return non-empty JSON")
+
+			var dto userDTO
+			err := json.Unmarshal([]byte(event.Data()), &dto)
+			require.NoError(t, err)
+			received <- dto
+			return nil
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		go func() {
+			subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
+				Stream:         "events:test-data",
+				ConsumerGroup:  config.Consumer.Group,
+				ConsumerID:     config.Consumer.ConsumerID,
+				Handler:        handler,
+				BatchSize:      config.Consumer.BatchSize,
+				BlockDuration:  config.Consumer.BlockDuration,
+				MaxConcurrency: config.Consumer.MaxConcurrency,
+			})
+		}()
+
+		time.Sleep(100 * time.Millisecond)
+
+		event := user.NewUserRegisteredEvent("user-data-test", "data@example.com")
+		err = publisher.Publish(context.Background(), "events:test-data", event)
+		require.NoError(t, err)
+
+		select {
+		case dto := <-received:
+			assert.Equal(t, "user-data-test", dto.UserID)
+			assert.Equal(t, "data@example.com", dto.Email)
+		case <-ctx.Done():
+			t.Fatal("timeout waiting for event Data() deserialization")
+		}
+	})
+
+	t.Run("producer-side event struct Data() returns valid JSON", func(t *testing.T) {
+		event := user.NewUserRegisteredEvent("user-123", "test@example.com")
+
+		data := event.Data()
+		assert.NotEmpty(t, data)
+
+		var parsed map[string]interface{}
+		err := json.Unmarshal([]byte(data), &parsed)
+		require.NoError(t, err)
+
+		assert.Equal(t, "user-123", parsed["user_id"])
+		assert.Equal(t, "test@example.com", parsed["email"])
 	})
 }

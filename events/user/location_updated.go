@@ -1,6 +1,8 @@
 package user
 
 import (
+	"encoding/json"
+
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
 	"github.com/tclavelloux/promy-event-bus/events"
 )
@@ -22,6 +24,13 @@ func NewUserLocationUpdatedEvent(userID string, latitude, longitude float64) *Us
 		Latitude:  latitude,
 		Longitude: longitude,
 	}
+}
+
+// Data returns the JSON payload of the event.
+func (e *UserLocationUpdatedEvent) Data() string {
+	b, _ := json.Marshal(e) //nolint:errchkjson // struct fields are always JSON-safe
+
+	return string(b)
 }
 
 // Validate validates the user location updated event using struct tags.
