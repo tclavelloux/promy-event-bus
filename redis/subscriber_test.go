@@ -23,11 +23,13 @@ func TestSubscriber_New(t *testing.T) {
 				DSN: "redis://localhost:6379/1",
 			},
 			Consumer: eventbus.ConsumerConfig{
-				Group:          "test-group",
-				ConsumerID:     "test-consumer",
-				BlockDuration:  1 * time.Second,
-				BatchSize:      10,
-				MaxConcurrency: 5,
+				Group:      "test-group",
+				ConsumerID: "test-consumer",
+				Defaults: eventbus.ConsumerStreamConfig{
+					BlockDuration:  1 * time.Second,
+					BatchSize:      10,
+					MaxConcurrency: 5,
+				},
 			},
 		}
 
@@ -62,11 +64,13 @@ func TestSubscriber_Subscribe(t *testing.T) {
 			DSN: "redis://localhost:6379/1",
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "test-subscribe-group",
-			ConsumerID:     "test-consumer-1",
-			BlockDuration:  1 * time.Second,
-			BatchSize:      10,
-			MaxConcurrency: 5,
+			Group:      "test-subscribe-group",
+			ConsumerID: "test-consumer-1",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BlockDuration:  1 * time.Second,
+				BatchSize:      10,
+				MaxConcurrency: 5,
+			},
 		},
 	}
 
@@ -95,9 +99,9 @@ func TestSubscriber_Subscribe(t *testing.T) {
 				ConsumerGroup:  config.Consumer.Group,
 				ConsumerID:     config.Consumer.ConsumerID,
 				Handler:        handler,
-				BatchSize:      config.Consumer.BatchSize,
-				BlockDuration:  config.Consumer.BlockDuration,
-				MaxConcurrency: config.Consumer.MaxConcurrency,
+				BatchSize:      config.Consumer.Defaults.BatchSize,
+				BlockDuration:  config.Consumer.Defaults.BlockDuration,
+				MaxConcurrency: config.Consumer.Defaults.MaxConcurrency,
 			})
 		}()
 
@@ -273,11 +277,13 @@ func TestSubscriber_EventData(t *testing.T) {
 			DSN: "redis://localhost:6379/1",
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "test-data-group",
-			ConsumerID:     "test-data-consumer",
-			BlockDuration:  1 * time.Second,
-			BatchSize:      10,
-			MaxConcurrency: 1,
+			Group:      "test-data-group",
+			ConsumerID: "test-data-consumer",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BlockDuration:  1 * time.Second,
+				BatchSize:      10,
+				MaxConcurrency: 1,
+			},
 		},
 	}
 
@@ -316,9 +322,9 @@ func TestSubscriber_EventData(t *testing.T) {
 				ConsumerGroup:  config.Consumer.Group,
 				ConsumerID:     config.Consumer.ConsumerID,
 				Handler:        handler,
-				BatchSize:      config.Consumer.BatchSize,
-				BlockDuration:  config.Consumer.BlockDuration,
-				MaxConcurrency: config.Consumer.MaxConcurrency,
+				BatchSize:      config.Consumer.Defaults.BatchSize,
+				BlockDuration:  config.Consumer.Defaults.BlockDuration,
+				MaxConcurrency: config.Consumer.Defaults.MaxConcurrency,
 			})
 		}()
 

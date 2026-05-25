@@ -25,11 +25,13 @@ func main() {
 			PoolSize: 10,
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "example-consumers",
-			ConsumerID:     "worker-1",
-			BatchSize:      10,
-			BlockDuration:  2 * time.Second,
-			MaxConcurrency: 5,
+			Group:      "example-consumers",
+			ConsumerID: "worker-1",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BatchSize:      10,
+				BlockDuration:  2 * time.Second,
+				MaxConcurrency: 5,
+			},
 		},
 	}
 
@@ -90,14 +92,15 @@ func main() {
 	log.Printf("Listening on: %s", streams.StreamPromotions)
 	log.Println("Press Ctrl+C to stop...")
 
+	resolved := config.Consumer.StreamConfig(streams.StreamPromotions)
 	streamConfig := eventbus.SubscriptionConfig{
 		Stream:         streams.StreamPromotions,
 		ConsumerGroup:  config.Consumer.Group,
 		ConsumerID:     config.Consumer.ConsumerID,
 		Handler:        handler,
-		BatchSize:      config.Consumer.BatchSize,
-		BlockDuration:  config.Consumer.BlockDuration,
-		MaxConcurrency: config.Consumer.MaxConcurrency,
+		BatchSize:      resolved.BatchSize,
+		BlockDuration:  resolved.BlockDuration,
+		MaxConcurrency: resolved.MaxConcurrency,
 	}
 
 	if err := subscriber.Subscribe(ctx, streamConfig); err != nil {
@@ -119,11 +122,16 @@ func exampleMultiStreamSubscription() {
 			PoolSize: 20,
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "multi-stream-consumers",
-			ConsumerID:     fmt.Sprintf("worker-%d", time.Now().Unix()),
-			BatchSize:      50,
-			BlockDuration:  2 * time.Second,
-			MaxConcurrency: 10,
+			Group:      "multi-stream-consumers",
+			ConsumerID: fmt.Sprintf("worker-%d", time.Now().Unix()),
+			Defaults: eventbus.ConsumerStreamConfig{
+				BatchSize:      50,
+				BlockDuration:  2 * time.Second,
+				MaxConcurrency: 10,
+			},
+			Streams: map[string]eventbus.ConsumerStreamConfig{
+				streams.StreamUsers: {MaxConcurrency: 1},
+			},
 		},
 	}
 
@@ -140,27 +148,29 @@ func exampleMultiStreamSubscription() {
 		return nil
 	}
 
+	promoCfg := config.Consumer.StreamConfig(streams.StreamPromotions)
 	go func() {
 		promotionSubscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
 			Stream:         streams.StreamPromotions,
 			ConsumerGroup:  config.Consumer.Group,
 			ConsumerID:     config.Consumer.ConsumerID,
 			Handler:        handler,
-			BatchSize:      config.Consumer.BatchSize,
-			BlockDuration:  config.Consumer.BlockDuration,
-			MaxConcurrency: config.Consumer.MaxConcurrency,
+			BatchSize:      promoCfg.BatchSize,
+			BlockDuration:  promoCfg.BlockDuration,
+			MaxConcurrency: promoCfg.MaxConcurrency,
 		})
 	}()
 
+	userCfg := config.Consumer.StreamConfig(streams.StreamUsers)
 	go func() {
 		userSubscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
 			Stream:         streams.StreamUsers,
 			ConsumerGroup:  config.Consumer.Group,
 			ConsumerID:     config.Consumer.ConsumerID + "-users",
 			Handler:        handler,
-			BatchSize:      config.Consumer.BatchSize,
-			BlockDuration:  config.Consumer.BlockDuration,
-			MaxConcurrency: config.Consumer.MaxConcurrency,
+			BatchSize:      userCfg.BatchSize,
+			BlockDuration:  userCfg.BlockDuration,
+			MaxConcurrency: userCfg.MaxConcurrency,
 		})
 	}()
 }

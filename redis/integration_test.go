@@ -26,11 +26,13 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 			DSN: "redis://localhost:6379/1",
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "integration-test-group",
-			ConsumerID:     "consumer-1",
-			BlockDuration:  1 * time.Second,
-			BatchSize:      10,
-			MaxConcurrency: 5,
+			Group:      "integration-test-group",
+			ConsumerID: "consumer-1",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BlockDuration:  1 * time.Second,
+				BatchSize:      10,
+				MaxConcurrency: 5,
+			},
 		},
 	}
 
@@ -62,9 +64,9 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 				ConsumerGroup:  config.Consumer.Group,
 				ConsumerID:     config.Consumer.ConsumerID,
 				Handler:        handler,
-				BatchSize:      config.Consumer.BatchSize,
-				BlockDuration:  config.Consumer.BlockDuration,
-				MaxConcurrency: config.Consumer.MaxConcurrency,
+				BatchSize:      config.Consumer.Defaults.BatchSize,
+				BlockDuration:  config.Consumer.Defaults.BlockDuration,
+				MaxConcurrency: config.Consumer.Defaults.MaxConcurrency,
 			})
 		}()
 
