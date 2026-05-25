@@ -1,0 +1,3 @@
+stream: events:identifications
+owner: promy-identifier
+description: "AI identification results linking a promotion to a canonical product."

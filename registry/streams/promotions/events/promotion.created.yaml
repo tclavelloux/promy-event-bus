@@ -1,0 +1,66 @@
+name: promotion.created
+tier: 1
+description: "Fired when a new retail promotion is scraped and persisted. Triggers product identification and preference-matching."
+fields:
+  promotion_id:
+    type: string
+    required: true
+    description: "Unique promotion identifier."
+  promotion_name:
+    type: string
+    required: true
+    description: "Human-readable name of the promoted item."
+  distributor_id:
+    type: string
+    required: true
+    description: "Identifier of the distributor (retailer) running the promotion."
+  leaflet_id:
+    type: string
+    required: true
+    description: "Identifier of the source leaflet."
+  leaflet_page:
+    type: number
+    required: true
+    description: "Page number within the leaflet where the promotion appears."
+  discounted_price:
+    type: number
+    required: true
+    description: "Promotional price in EUR."
+  created_at:
+    type: string
+    format: date-time
+    required: true
+    description: "ISO 8601 timestamp when the promotion was created."
+  product_type_id:
+    type: string
+    required: false
+    description: "Product type identifier if already identified at creation time."
+  valid_from:
+    type: string
+    format: date-time
+    required: false
+    description: "Start date of the promotion validity period."
+  valid_to:
+    type: string
+    format: date-time
+    required: false
+    description: "End date of the promotion validity period."
+  image_url:
+    type: string
+    format: uri
+    required: false
+    description: "URL of the promotion image."
+  original_price:
+    type: number
+    required: false
+    description: "Original price before discount in EUR."
+example:
+  promotion_id: "promo-550e8400-e29b-41d4-a716-446655440000"
+  promotion_name: "Patate douce"
+  distributor_id: "dist-leclerc-75"
+  leaflet_id: "leaflet-2026-w22"
+  leaflet_page: 3
+  discounted_price: 1.29
+  created_at: "2026-05-25T08:00:00Z"
+  valid_from: "2026-05-26T00:00:00Z"
+  valid_to: "2026-06-01T23:59:59Z"

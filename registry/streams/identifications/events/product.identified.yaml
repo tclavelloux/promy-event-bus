@@ -1,0 +1,34 @@
+name: product.identified
+tier: 1
+description: "Fired when the AI pipeline matches a promotion to a canonical product. Triggers catalogue enrichment."
+fields:
+  promotion_id:
+    type: string
+    required: true
+    description: "Promotion that was identified."
+  product_id:
+    type: string
+    required: true
+    description: "Canonical product the promotion was matched to."
+  product_type:
+    type: string
+    required: true
+    description: "Product type classification label."
+  category_id:
+    type: string
+    required: true
+    description: "Category identifier from the product taxonomy."
+  brand:
+    type: string
+    required: false
+    description: "Brand name if identified."
+  confidence:
+    type: number
+    required: true
+    description: "AI confidence score in [0, 1]."
+example:
+  promotion_id: "promo-550e8400-e29b-41d4-a716-446655440000"
+  product_id: "prod-550e8400-e29b-41d4-a716-446655440000"
+  product_type: "vegetables"
+  category_id: "cat-produce"
+  confidence: 0.95
