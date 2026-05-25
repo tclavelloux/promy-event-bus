@@ -9,10 +9,8 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
-	"github.com/tclavelloux/promy-event-bus/events/promotion"
-	"github.com/tclavelloux/promy-event-bus/events/user"
-	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
+	"github.com/tclavelloux/promy-event-bus/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,16 +79,13 @@ func TestSubscriber_Subscribe(t *testing.T) {
 		require.NoError(t, err)
 		defer publisher.Close()
 
-		// Channel to receive events
 		received := make(chan eventbus.Event, 1)
 
-		// Handler that captures events
 		handler := func(ctx context.Context, event eventbus.Event) error {
 			received <- event
 			return nil
 		}
 
-		// Start subscriber in background
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -106,28 +101,17 @@ func TestSubscriber_Subscribe(t *testing.T) {
 			})
 		}()
 
-		// Give subscriber time to start
 		time.Sleep(100 * time.Millisecond)
 
-		// Publish test event
-		event := promotion.NewPromotionCreatedEvent(
-			"promo-test",
-			"Test Product",
-			"dist-test",
-			"leaflet-test",
-			1,
-			12.99,
-			ptr.String("cat-test"),
-			nil,
-			nil,
-			ptr.String("https://example.com/test.jpg"),
-			ptr.Float64(12.99),
-		)
+		event := testutil.NewTestEvent("promotion.created", map[string]any{
+			"promotion_id":   "promo-test",
+			"promotion_name": "Test Product",
+			"distributor_id": "dist-test",
+		})
 
 		err = publisher.Publish(context.Background(), "events:test-subscribe", event)
 		require.NoError(t, err)
 
-		// Wait for event
 		select {
 		case receivedEvent := <-received:
 			assert.Equal(t, event.EventType(), receivedEvent.EventType())
@@ -146,7 +130,6 @@ func TestSubscriber_Subscribe(t *testing.T) {
 		require.NoError(t, err)
 		defer publisher.Close()
 
-		// Counter for received events
 		var count atomic.Int32
 
 		handler := func(ctx context.Context, event eventbus.Event) error {
@@ -171,28 +154,15 @@ func TestSubscriber_Subscribe(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		// Publish multiple events
 		for i := 0; i < 5; i++ {
-			event := promotion.NewPromotionCreatedEvent(
-				"promo-"+string(rune(i)),
-				"Product "+string(rune(i)),
-				"dist-1",
-				"leaflet-1",
-				1,
-				float64(i+1)*10.0, // Start at 10.0 to ensure price > 0
-				ptr.String("cat-1"),
-				nil,
-				nil,
-				ptr.String("https://example.com/test.jpg"),
-				ptr.Float64(float64(i+1)*10.0),
-			)
+			event := testutil.NewTestEvent("promotion.created", map[string]any{
+				"promotion_id": "promo-" + string(rune('a'+i)),
+			})
 			err = publisher.Publish(context.Background(), "events:test-multiple", event)
 			require.NoError(t, err)
 		}
 
-		// Wait for all events to be processed
 		time.Sleep(2 * time.Second)
-
 		assert.Equal(t, int32(5), count.Load())
 	})
 
@@ -210,9 +180,9 @@ func TestSubscriber_Subscribe(t *testing.T) {
 		handler := func(ctx context.Context, event eventbus.Event) error {
 			count := attemptCount.Add(1)
 			if count < 3 {
-				return assert.AnError // Fail first 2 attempts
+				return assert.AnError
 			}
-			return nil // Succeed on 3rd attempt
+			return nil
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -232,27 +202,14 @@ func TestSubscriber_Subscribe(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		event := promotion.NewPromotionCreatedEvent(
-			"promo-retry",
-			"Retry Product",
-			"dist-1",
-			"leaflet-1",
-			1,
-			9.99,
-			ptr.String("cat-1"),
-			nil,
-			nil,
-			ptr.String("https://example.com/retry.jpg"),
-			ptr.Float64(9.99),
-		)
+		event := testutil.NewTestEvent("promotion.created", map[string]any{
+			"promotion_id": "promo-retry",
+		})
 
 		err = publisher.Publish(context.Background(), "events:test-retry", event)
 		require.NoError(t, err)
 
-		// Wait for retries
 		time.Sleep(5 * time.Second)
-
-		// Should have been called 3 times (initial + 2 retries)
 		assert.GreaterOrEqual(t, attemptCount.Load(), int32(3))
 	})
 }
@@ -367,7 +324,10 @@ func TestSubscriber_EventData(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		event := user.NewUserRegisteredEvent("user-data-test", "data@example.com")
+		event := testutil.NewTestEvent("user.registered", map[string]any{
+			"user_id": "user-data-test",
+			"email":   "data@example.com",
+		})
 		err = publisher.Publish(context.Background(), "events:test-data", event)
 		require.NoError(t, err)
 
@@ -381,7 +341,10 @@ func TestSubscriber_EventData(t *testing.T) {
 	})
 
 	t.Run("producer-side event struct Data() returns valid JSON", func(t *testing.T) {
-		event := user.NewUserRegisteredEvent("user-123", "test@example.com")
+		event := testutil.NewTestEvent("user.registered", map[string]any{
+			"user_id": "user-123",
+			"email":   "test@example.com",
+		})
 
 		data := event.Data()
 		assert.NotEmpty(t, data)

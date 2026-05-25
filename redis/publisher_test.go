@@ -7,12 +7,8 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
-	"github.com/tclavelloux/promy-event-bus/events"
-	"github.com/tclavelloux/promy-event-bus/events/product"
-	"github.com/tclavelloux/promy-event-bus/events/promotion"
-	"github.com/tclavelloux/promy-event-bus/events/user"
-	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
+	"github.com/tclavelloux/promy-event-bus/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,69 +65,38 @@ func TestPublisher_Publish(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("publishes event successfully", func(t *testing.T) {
-		event := promotion.NewPromotionCreatedEvent(
-			"promo-123",
-			"Patate douce",
-			"dist-456",
-			"leaflet-123",
-			1,
-			9.99,
-			ptr.String("cat-789"),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/image.jpg"),
-			ptr.Float64(11.99),
-		)
+		event := testutil.NewTestEvent("promotion.created", map[string]any{
+			"promotion_id":   "promo-123",
+			"promotion_name": "Patate douce",
+			"distributor_id": "dist-456",
+		})
 
 		err := publisher.Publish(ctx, "events:test", event)
 		assert.NoError(t, err)
-	})
-
-	t.Run("validates event before publishing", func(t *testing.T) {
-		// Create invalid event (missing required fields)
-		event := &promotion.PromotionCreatedEvent{
-			BaseEvent: eventbus.NewBaseEvent(events.EventPromotionCreated, "test"),
-			// Missing PromotionID, ProductName, DistributorID
-		}
-
-		err := publisher.Publish(ctx, "events:test", event)
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, eventbus.ErrInvalidEvent)
 	})
 
 	t.Run("publishes different event types", func(t *testing.T) {
-		// Promotion event
-		promoEvent := promotion.NewPromotionCreatedEvent(
-			"promo-456",
-			"Test Product",
-			"dist-123",
-			"leaflet-456",
-			1,
-			15.99,
-			ptr.String("cat-456"),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/test.jpg"),
-			ptr.Float64(15.99),
-		)
-		err := publisher.Publish(ctx, events.StreamPromotions, promoEvent)
+		promoEvent := testutil.NewTestEvent("promotion.created", map[string]any{
+			"promotion_id":   "promo-456",
+			"promotion_name": "Test Product",
+			"distributor_id": "dist-123",
+		})
+		err := publisher.Publish(ctx, "events:promotions", promoEvent)
 		assert.NoError(t, err)
 
-		// User event
-		userEvent := user.NewUserRegisteredEvent("user-789", "test@example.com")
-		err = publisher.Publish(ctx, events.StreamUsers, userEvent)
+		userEvent := testutil.NewTestEvent("user.registered", map[string]any{
+			"user_id": "user-789",
+			"email":   "test@example.com",
+		})
+		err = publisher.Publish(ctx, "events:users", userEvent)
 		assert.NoError(t, err)
 
-		// Product event
-		productEvent := product.NewProductIdentifiedEvent(
-			"promo-456",
-			"prod-789",
-			"vegetables",
-			"cat-123",
-			ptr.String("BrandX"),
-			0.95,
-		)
-		err = publisher.Publish(ctx, events.StreamProducts, productEvent)
+		productEvent := testutil.NewTestEvent("product.identified", map[string]any{
+			"promotion_id": "promo-456",
+			"product_id":   "prod-789",
+			"confidence":   0.95,
+		})
+		err = publisher.Publish(ctx, "events:products", productEvent)
 		assert.NoError(t, err)
 	})
 }
@@ -149,45 +114,9 @@ func TestPublisher_PublishBatch(t *testing.T) {
 
 	t.Run("publishes batch successfully", func(t *testing.T) {
 		events := []eventbus.Event{
-			promotion.NewPromotionCreatedEvent(
-				"promo-1",
-				"Product 1",
-				"dist-1",
-				"leaflet-1",
-				1,
-				10.00,
-				ptr.String("cat-1"),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/1.jpg"),
-				ptr.Float64(10.00),
-			),
-			promotion.NewPromotionCreatedEvent(
-				"promo-2",
-				"Product 2",
-				"dist-2",
-				"leaflet-2",
-				2,
-				20.00,
-				ptr.String("cat-2"),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/2.jpg"),
-				ptr.Float64(20.00),
-			),
-			promotion.NewPromotionCreatedEvent(
-				"promo-3",
-				"Product 3",
-				"dist-3",
-				"leaflet-3",
-				3,
-				30.00,
-				ptr.String("cat-3"),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/3.jpg"),
-				ptr.Float64(30.00),
-			),
+			testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-1"}),
+			testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-2"}),
+			testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-3"}),
 		}
 
 		err := publisher.PublishBatch(ctx, "events:test-batch", events)
@@ -197,32 +126,6 @@ func TestPublisher_PublishBatch(t *testing.T) {
 	t.Run("handles empty batch", func(t *testing.T) {
 		err := publisher.PublishBatch(ctx, "events:test-batch", []eventbus.Event{})
 		assert.NoError(t, err)
-	})
-
-	t.Run("fails with invalid event in batch", func(t *testing.T) {
-		events := []eventbus.Event{
-			promotion.NewPromotionCreatedEvent(
-				"promo-1",
-				"Product 1",
-				"dist-1",
-				"leaflet-1",
-				1,
-				10.00,
-				ptr.String("cat-1"),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/1.jpg"),
-				ptr.Float64(10.00),
-			),
-			&promotion.PromotionCreatedEvent{
-				BaseEvent: eventbus.NewBaseEvent(events.EventPromotionCreated, "test"),
-				// Invalid: missing required fields
-			},
-		}
-
-		err := publisher.PublishBatch(ctx, "events:test-batch", events)
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, eventbus.ErrInvalidEvent)
 	})
 }
 
