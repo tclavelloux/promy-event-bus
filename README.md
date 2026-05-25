@@ -161,9 +161,12 @@ The library provides predefined event schemas as a single source of truth:
 - `ProductIdentifiedEvent` - When a product is identified by AI
 
 ### Streams
-- `events:users` - User-related events
-- `events:promotions` - Promotion-related events
-- `events:products` - Product-related events
+- `events:users` - User lifecycle events - **owned by `promy-user`**
+- `events:subscriptions` - Subscription lifecycle events - **owned by `promy-user`**
+- `events:promotions` - Promotion events - **owned by `promy-product`**
+- `events:products` - Product catalogue events - **owned by `promy-product`**
+- `events:identifications` - AI identification results - **owned by `promy-identifier`**
+- `events:dlq` - Dead-letter queue (multi-writer) - **owned by `platform`**
 
 ## Schema Governance
 
@@ -197,6 +200,45 @@ go test ./eventbus/... -run Compatibility
 - Remove required fields
 - Change field types
 - Add required fields without defaults
+
+## Event Schema Registry
+
+The `registry/streams/` directory is the canonical source of truth for what events exist on the platform. Each stream has a `stream.yaml` (owner, description) and each event has its own YAML file defining the contract: name, tier, fields, and an example payload.
+
+```
+registry/streams/
+  users/
+    stream.yaml
+    events/
+      user.registered.yaml
+      user.preferences.updated.yaml
+      user.location.updated.yaml
+  promotions/
+    stream.yaml
+    events/
+      promotion.created.yaml
+      promotion.updated.yaml
+  ...
+```
+
+### Adding a new event
+
+1. Open a PR on `promy-event-bus` adding `registry/streams/<domain>/events/<event-name>.yaml`
+2. Follow the schema: `name`, `tier`, `description`, `fields` (with `type`, `format`, `required`, `description`), `example`
+3. CI runs `scripts/validate-registry.sh` — the PR cannot merge until it passes
+4. PR merged = the event contract is official
+5. Implement the event struct in your service's `internal/events/` package
+
+### Naming conventions (enforced by CI)
+
+| Rule | Example |
+|---|---|
+| Event name: dot-separated snake_case, verb in past tense | `user.registered`, `subscription.cancelled` |
+| Field names: snake_case | `user_id`, `discounted_price` |
+| Field `type`: `string`, `number`, `boolean`, `object`, `array` | |
+| Field `format` (optional): `uuid`, `email`, `date-time`, `uri` | |
+| `name` in YAML must match the filename | `user.registered.yaml` → `name: user.registered` |
+| `tier` must be `1` (business-critical) or `2` (best-effort) | |
 
 ## Configuration
 
