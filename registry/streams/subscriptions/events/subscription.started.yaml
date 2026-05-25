@@ -1,0 +1,28 @@
+name: subscription.started
+tier: 1
+description: "Fired when a user activates a subscription plan. Triggers onboarding sequence and CRM tagging."
+fields:
+  subscription_id:
+    type: string
+    format: uuid
+    required: true
+    description: "Unique identifier of the subscription."
+  user_id:
+    type: string
+    format: uuid
+    required: true
+    description: "User who started the subscription."
+  plan_id:
+    type: string
+    required: true
+    description: "Identifier of the subscribed plan."
+  started_at:
+    type: string
+    format: date-time
+    required: true
+    description: "ISO 8601 timestamp when the subscription became active."
+example:
+  subscription_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  user_id: "550e8400-e29b-41d4-a716-446655440000"
+  plan_id: "plan-premium"
+  started_at: "2026-05-25T10:00:00Z"

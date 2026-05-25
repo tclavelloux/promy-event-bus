@@ -1,0 +1,3 @@
+stream: events:users
+owner: promy-user
+description: "User lifecycle events — registration, preferences, and location updates."

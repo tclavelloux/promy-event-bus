@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,29 +12,29 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
-	"github.com/tclavelloux/promy-event-bus/events"
 	"github.com/tclavelloux/promy-event-bus/redis"
+	"github.com/tclavelloux/promy-event-bus/streams"
 )
 
 func main() {
 	log.Println("Starting Event Bus Subscriber Example...")
 
-	// Load configuration
 	config := eventbus.Config{
 		Redis: eventbus.RedisConfig{
 			DSN:      "redis://localhost:6379/0",
 			PoolSize: 10,
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "example-consumers",
-			ConsumerID:     "worker-1",
-			BatchSize:      10,
-			BlockDuration:  2 * time.Second,
-			MaxConcurrency: 5,
+			Group:      "example-consumers",
+			ConsumerID: "worker-1",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BatchSize:      10,
+				BlockDuration:  2 * time.Second,
+				MaxConcurrency: 5,
+			},
 		},
 	}
 
-	// Create subscriber
 	subscriber, err := redis.NewSubscriber(config)
 	if err != nil {
 		log.Fatalf("Failed to create subscriber: %v", err)
@@ -42,49 +43,39 @@ func main() {
 
 	log.Println("Subscriber created successfully")
 
-	// Define event handler
 	handler := func(ctx context.Context, event eventbus.Event) error {
 		log.Printf("\n=== Received Event ===")
 		log.Printf("Type: %s", event.EventType())
 		log.Printf("ID: %s", event.EventID())
 		log.Printf("Time: %s", event.EventTime().Format(time.RFC3339))
 
-		// Type-specific handling (note: in real implementation you'd deserialize based on type)
-		switch event.EventType() {
-		case events.EventPromotionCreated:
-			log.Printf("Event: New promotion created")
-			// In real implementation: cast to *events.PromotionCreatedEvent and access fields
-
-		case events.EventPromotionUpdated:
-			log.Printf("Event: Promotion updated")
-
-		case events.EventPromotionDeleted:
-			log.Printf("Event: Promotion deleted")
-
-		case events.EventProductIdentified:
-			log.Printf("Event: Product identified by AI")
-
-		case events.EventUserRegistered:
-			log.Printf("Event: New user registered")
-
-		case events.EventUserPreferencesUpdated:
-			log.Printf("Event: User preferences updated")
-
-		case events.EventUserLocationUpdated:
-			log.Printf("Event: User location updated")
-
-		default:
-			log.Printf("Event: Unknown type")
+		// Deserialize payload using event.Data()
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(event.Data()), &payload); err != nil {
+			log.Printf("Failed to unmarshal payload: %v", err)
+		} else {
+			log.Printf("Payload: %v", payload)
 		}
 
-		// Simulate processing
-		time.Sleep(100 * time.Millisecond)
+		switch event.EventType() {
+		case "promotion.created":
+			log.Printf("Event: New promotion created")
+		case "product.identified":
+			log.Printf("Event: Product identified by AI")
+		case "user.registered":
+			log.Printf("Event: New user registered")
+		case "user.preferences.updated":
+			log.Printf("Event: User preferences updated")
+		case "user.location.updated":
+			log.Printf("Event: User location updated")
+		default:
+			log.Printf("Event: Unknown type -- ACKing")
+		}
 
-		log.Printf("✓ Event processed successfully\n")
+		log.Printf("Event processed successfully\n")
 		return nil
 	}
 
-	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -97,40 +88,31 @@ func main() {
 		cancel()
 	}()
 
-	// Start consuming from multiple streams
 	log.Println("\n=== Starting Event Consumption ===")
-	log.Println("Listening for events on:")
-	log.Printf("  - %s (Promotion events)", events.StreamPromotions)
-	log.Printf("  - %s (Product events)", events.StreamProducts)
-	log.Printf("  - %s (User events)", events.StreamUsers)
-	log.Println("\nPress Ctrl+C to stop...")
+	log.Printf("Listening on: %s", streams.StreamPromotions)
+	log.Println("Press Ctrl+C to stop...")
 
-	// In a real application, you'd typically subscribe to one stream per subscriber
-	// For this example, we'll subscribe to the promotions stream
-	// You would spawn multiple goroutines or separate processes for other streams
-
+	resolved := config.Consumer.StreamConfig(streams.StreamPromotions)
 	streamConfig := eventbus.SubscriptionConfig{
-		Stream:         events.StreamPromotions,
+		Stream:         streams.StreamPromotions,
 		ConsumerGroup:  config.Consumer.Group,
 		ConsumerID:     config.Consumer.ConsumerID,
 		Handler:        handler,
-		BatchSize:      config.Consumer.BatchSize,
-		BlockDuration:  config.Consumer.BlockDuration,
-		MaxConcurrency: config.Consumer.MaxConcurrency,
+		BatchSize:      resolved.BatchSize,
+		BlockDuration:  resolved.BlockDuration,
+		MaxConcurrency: resolved.MaxConcurrency,
 	}
 
-	// Subscribe (blocking operation)
 	if err := subscriber.Subscribe(ctx, streamConfig); err != nil {
 		if err == context.Canceled {
 			log.Println("\n=== Subscriber Stopped ===")
-			log.Println("Graceful shutdown complete")
 		} else {
 			log.Fatalf("Subscription failed: %v", err)
 		}
 	}
 }
 
-// Example of how to subscribe to multiple streams in a real application
+// exampleMultiStreamSubscription shows how to subscribe to multiple streams.
 //
 //nolint:all // Example function
 func exampleMultiStreamSubscription() {
@@ -140,80 +122,55 @@ func exampleMultiStreamSubscription() {
 			PoolSize: 20,
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "multi-stream-consumers",
-			ConsumerID:     fmt.Sprintf("worker-%d", time.Now().Unix()),
-			BatchSize:      50,
-			BlockDuration:  2 * time.Second,
-			MaxConcurrency: 10,
+			Group:      "multi-stream-consumers",
+			ConsumerID: fmt.Sprintf("worker-%d", time.Now().Unix()),
+			Defaults: eventbus.ConsumerStreamConfig{
+				BatchSize:      50,
+				BlockDuration:  2 * time.Second,
+				MaxConcurrency: 10,
+			},
+			Streams: map[string]eventbus.ConsumerStreamConfig{
+				streams.StreamUsers: {MaxConcurrency: 1},
+			},
 		},
 	}
 
-	// Create separate subscribers for each stream
 	promotionSubscriber, _ := redis.NewSubscriber(config)
 	defer promotionSubscriber.Close()
-
-	productSubscriber, _ := redis.NewSubscriber(config)
-	defer productSubscriber.Close()
 
 	userSubscriber, _ := redis.NewSubscriber(config)
 	defer userSubscriber.Close()
 
 	ctx := context.Background()
 
-	// Subscribe to promotions stream
+	handler := func(ctx context.Context, event eventbus.Event) error {
+		log.Printf("Processing event: %s (type: %s)", event.EventID(), event.EventType())
+		return nil
+	}
+
+	promoCfg := config.Consumer.StreamConfig(streams.StreamPromotions)
 	go func() {
 		promotionSubscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
-			Stream:         events.StreamPromotions,
+			Stream:         streams.StreamPromotions,
 			ConsumerGroup:  config.Consumer.Group,
 			ConsumerID:     config.Consumer.ConsumerID,
-			Handler:        handlePromotionEvent,
-			BatchSize:      config.Consumer.BatchSize,
-			BlockDuration:  config.Consumer.BlockDuration,
-			MaxConcurrency: config.Consumer.MaxConcurrency,
+			Handler:        handler,
+			BatchSize:      promoCfg.BatchSize,
+			BlockDuration:  promoCfg.BlockDuration,
+			MaxConcurrency: promoCfg.MaxConcurrency,
 		})
 	}()
 
-	// Subscribe to products stream
-	go func() {
-		productSubscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
-			Stream:         events.StreamProducts,
-			ConsumerGroup:  config.Consumer.Group,
-			ConsumerID:     config.Consumer.ConsumerID + "-products",
-			Handler:        handleProductEvent,
-			BatchSize:      config.Consumer.BatchSize,
-			BlockDuration:  config.Consumer.BlockDuration,
-			MaxConcurrency: config.Consumer.MaxConcurrency,
-		})
-	}()
-
-	// Subscribe to users stream
+	userCfg := config.Consumer.StreamConfig(streams.StreamUsers)
 	go func() {
 		userSubscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
-			Stream:         events.StreamUsers,
+			Stream:         streams.StreamUsers,
 			ConsumerGroup:  config.Consumer.Group,
 			ConsumerID:     config.Consumer.ConsumerID + "-users",
-			Handler:        handleUserEvent,
-			BatchSize:      config.Consumer.BatchSize,
-			BlockDuration:  config.Consumer.BlockDuration,
-			MaxConcurrency: config.Consumer.MaxConcurrency,
+			Handler:        handler,
+			BatchSize:      userCfg.BatchSize,
+			BlockDuration:  userCfg.BlockDuration,
+			MaxConcurrency: userCfg.MaxConcurrency,
 		})
 	}()
-}
-
-//nolint:unused // Example function
-func handlePromotionEvent(ctx context.Context, event eventbus.Event) error {
-	log.Printf("Processing promotion event: %s", event.EventID())
-	return nil
-}
-
-//nolint:unused // Example function
-func handleProductEvent(ctx context.Context, event eventbus.Event) error {
-	log.Printf("Processing product event: %s", event.EventID())
-	return nil
-}
-
-//nolint:unused // Example function
-func handleUserEvent(ctx context.Context, event eventbus.Event) error {
-	log.Printf("Processing user event: %s", event.EventID())
-	return nil
 }

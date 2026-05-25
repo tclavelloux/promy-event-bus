@@ -1,3 +1,4 @@
+//nolint:all // Example file
 package main
 
 import (
@@ -6,24 +7,19 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
-	"github.com/tclavelloux/promy-event-bus/events"
-	"github.com/tclavelloux/promy-event-bus/events/product"
-	"github.com/tclavelloux/promy-event-bus/events/promotion"
-	"github.com/tclavelloux/promy-event-bus/events/user"
-	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
+	"github.com/tclavelloux/promy-event-bus/streams"
+	"github.com/tclavelloux/promy-event-bus/testutil"
 )
 
 func main() {
 	log.Println("Starting Event Bus Publisher Example...")
 
-	// Load configuration
 	config := eventbus.RedisConfig{
 		DSN:      "redis://localhost:6379/0",
 		PoolSize: 10,
 	}
 
-	// Create publisher
 	publisher, err := redis.NewPublisher(config)
 	if err != nil {
 		log.Fatalf("Failed to create publisher: %v", err)
@@ -36,106 +32,63 @@ func main() {
 
 	log.Println("Publisher created successfully")
 
-	// Create context
 	ctx := context.Background()
 
 	// Example 1: Publish a single promotion event
 	log.Println("\n=== Publishing Single Promotion Event ===")
-	promoEvent := promotion.NewPromotionCreatedEvent(
-		"promo-123",
-		"Patate douce",
-		"dist-456",
-		"leaflet-123",
-		1,
-		9.99,
-		ptr.String("cat-789"), // ProductTypeID
-		ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)), // ValidFrom
-		ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)), // ValidTo
-		ptr.String("https://example.com/patate-douce.jpg"),    // ImageURL
-		ptr.Float64(12.99), // OriginalPrice
-	)
+	promoEvent := testutil.NewTestEvent("promotion.created", map[string]any{
+		"promotion_id":   "promo-123",
+		"promotion_name": "Patate douce",
+		"distributor_id": "dist-456",
+	})
 
-	if err := publisher.Publish(ctx, events.StreamPromotions, promoEvent); err != nil {
+	if err := publisher.Publish(ctx, streams.StreamPromotions, promoEvent); err != nil {
 		log.Printf("Failed to publish promotion event: %v", err)
 	} else {
-		log.Printf("✓ Published promotion event: %s (ID: %s)", promoEvent.PromotionName, promoEvent.EventID())
+		log.Printf("Published promotion event (ID: %s)", promoEvent.EventID())
 	}
 
 	// Example 2: Publish a user registered event
 	log.Println("\n=== Publishing User Registered Event ===")
-	userEvent := user.NewUserRegisteredEvent("user-789", "john.doe@example.com")
+	userEvent := testutil.NewTestEvent("user.registered", map[string]any{
+		"user_id": "user-789",
+		"email":   "john.doe@example.com",
+	})
 
-	if err := publisher.Publish(ctx, events.StreamUsers, userEvent); err != nil {
+	if err := publisher.Publish(ctx, streams.StreamUsers, userEvent); err != nil {
 		log.Printf("Failed to publish user event: %v", err)
 	} else {
-		log.Printf("✓ Published user event: %s (ID: %s)", userEvent.Email, userEvent.EventID())
+		log.Printf("Published user event (ID: %s)", userEvent.EventID())
 	}
 
 	// Example 3: Publish a product identified event
 	log.Println("\n=== Publishing Product Identified Event ===")
-	productEvent := product.NewProductIdentifiedEvent(
-		"promo-123",
-		"prod-456",
-		"vegetables",
-		"cat-789",
-		ptr.String("BioMarket"),
-		0.95,
-	)
+	productEvent := testutil.NewTestEvent("product.identified", map[string]any{
+		"promotion_id": "promo-123",
+		"product_id":   "prod-456",
+		"product_type": "vegetables",
+		"category_id":  "cat-789",
+		"confidence":   0.95,
+	})
 
-	if err := publisher.Publish(ctx, events.StreamProducts, productEvent); err != nil {
+	if err := publisher.Publish(ctx, streams.StreamProducts, productEvent); err != nil {
 		log.Printf("Failed to publish product event: %v", err)
 	} else {
-		log.Printf("✓ Published product event: %s (ID: %s, Confidence: %.2f)", productEvent.ProductType, productEvent.EventID(), productEvent.Confidence)
+		log.Printf("Published product event (ID: %s)", productEvent.EventID())
 	}
 
-	// Example 4: Batch publish multiple events
+	// Example 4: Batch publish
 	log.Println("\n=== Publishing Batch of Events ===")
 	batchEvents := []eventbus.Event{
-		promotion.NewPromotionCreatedEvent(
-			"promo-200",
-			"Pommes Golden",
-			"dist-101",
-			"leaflet-200",
-			1,
-			3.99,
-			ptr.String("cat-fruits"),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/pommes.jpg"),
-			ptr.Float64(4.99),
-		),
-		promotion.NewPromotionCreatedEvent(
-			"promo-201",
-			"Bananes",
-			"dist-101",
-			"leaflet-200",
-			2,
-			2.49,
-			ptr.String("cat-fruits"),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/bananes.jpg"),
-			ptr.Float64(3.49),
-		),
-		promotion.NewPromotionCreatedEvent(
-			"promo-202",
-			"Oranges",
-			"dist-101",
-			"leaflet-200",
-			3,
-			4.99,
-			ptr.String("cat-fruits"),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 9, 8, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/oranges.jpg"),
-			ptr.Float64(5.99),
-		),
+		testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-200", "promotion_name": "Pommes Golden"}),
+		testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-201", "promotion_name": "Bananes"}),
+		testutil.NewTestEvent("promotion.created", map[string]any{"promotion_id": "promo-202", "promotion_name": "Oranges"}),
 	}
 
-	if err := publisher.PublishBatch(ctx, events.StreamPromotions, batchEvents); err != nil {
+	if err := publisher.PublishBatch(ctx, streams.StreamPromotions, batchEvents); err != nil {
 		log.Printf("Failed to publish batch: %v", err)
 	} else {
-		log.Printf("✓ Published batch of %d promotion events", len(batchEvents))
+		log.Printf("Published batch of %d promotion events", len(batchEvents))
 	}
 
 	// Example 5: Health check
@@ -143,13 +96,9 @@ func main() {
 	if err := publisher.Health(ctx); err != nil {
 		log.Printf("Publisher health check failed: %v", err)
 	} else {
-		log.Println("✓ Publisher is healthy")
+		log.Println("Publisher is healthy")
 	}
 
-	// Wait a moment for events to be published
 	time.Sleep(500 * time.Millisecond)
-
 	log.Println("\n=== Publisher Example Complete ===")
-	log.Println("Events have been published to Redis Streams")
-	log.Println("Run the subscriber example to consume these events")
 }

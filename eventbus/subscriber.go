@@ -45,6 +45,14 @@ type SubscriptionConfig struct {
 	// BlockDuration is how long to block waiting for events.
 	// If 0, defaults to 1 second.
 	BlockDuration time.Duration
+
+	// DLQPublisher is an optional publisher used to route failed events to the
+	// dead-letter queue after retry exhaustion. If nil, exhausted events are
+	// silently dropped (current default behaviour).
+	DLQPublisher EventPublisher
+
+	// DLQService identifies the service for DLQ entries (e.g., "promy-crm").
+	DLQService string
 }
 
 // EventHandler processes a single event.

@@ -1,0 +1,3 @@
+stream: events:promotions
+owner: promy-product
+description: "Retail promotion events scraped from distributor leaflets."

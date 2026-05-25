@@ -1,0 +1,3 @@
+stream: events:products
+owner: promy-product
+description: "Product catalogue events — creation and updates of canonical product records."

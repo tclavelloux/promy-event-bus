@@ -1,0 +1,17 @@
+name: user.registered
+tier: 1
+description: "Fired when a user completes registration. Triggers onboarding flow in promy-crm."
+fields:
+  user_id:
+    type: string
+    format: uuid
+    required: true
+    description: "Internal user identifier."
+  email:
+    type: string
+    format: email
+    required: true
+    description: "User email address used for authentication and notifications."
+example:
+  user_id: "550e8400-e29b-41d4-a716-446655440000"
+  email: "thomas@example.com"

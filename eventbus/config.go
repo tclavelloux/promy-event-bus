@@ -48,28 +48,49 @@ type RedisConfig struct {
 	WriteTimeout time.Duration `yaml:"write_timeout"`
 }
 
-// ConsumerConfig configures event consumption.
-type ConsumerConfig struct {
-	// Group is the consumer group name.
-	// All consumers with the same group share the workload.
-	Group string `yaml:"group"`
-
-	// ConsumerID identifies this consumer within the group.
-	// Should be unique per consumer instance.
-	ConsumerID string `yaml:"consumer_id"`
-
-	// BlockDuration for blocking reads.
-	// How long to wait for new messages before checking again.
-	// Default: 1s
+// ConsumerStreamConfig holds the tuning parameters for consuming a single stream.
+type ConsumerStreamConfig struct {
+	// BlockDuration is how long to block waiting for new messages before polling again.
 	BlockDuration time.Duration `yaml:"block_duration"`
 
-	// BatchSize for batch reads.
-	// Number of messages to fetch per read operation.
-	// Default: 10
+	// BatchSize is the number of messages to fetch per read operation.
 	BatchSize int `yaml:"batch_size"`
 
-	// MaxConcurrency for parallel processing.
-	// Maximum number of messages to process concurrently.
-	// Default: 5
+	// MaxConcurrency is the maximum number of messages to process in parallel.
 	MaxConcurrency int `yaml:"max_concurrency"`
+}
+
+// ConsumerConfig configures event consumption.
+type ConsumerConfig struct {
+	// Group is the consumer group name shared by all workers of this service.
+	Group string `yaml:"group"`
+
+	// ConsumerID uniquely identifies this consumer instance within the group.
+	ConsumerID string `yaml:"consumer_id"`
+
+	// Defaults provides the baseline tuning for all streams.
+	Defaults ConsumerStreamConfig `yaml:"defaults"`
+
+	// Streams holds per-stream overrides keyed by stream name (e.g., "events:users").
+	// Only non-zero fields override the defaults.
+	Streams map[string]ConsumerStreamConfig `yaml:"streams"`
+}
+
+// StreamConfig returns the resolved ConsumerStreamConfig for the given stream name.
+// It starts from Defaults and applies any non-zero fields from the per-stream override.
+func (c ConsumerConfig) StreamConfig(stream string) ConsumerStreamConfig {
+	cfg := c.Defaults
+	if override, ok := c.Streams[stream]; ok {
+		if override.BatchSize > 0 {
+			cfg.BatchSize = override.BatchSize
+		}
+		if override.BlockDuration > 0 {
+			cfg.BlockDuration = override.BlockDuration
+		}
+		if override.MaxConcurrency > 0 {
+			cfg.MaxConcurrency = override.MaxConcurrency
+		}
+	}
+
+	return cfg
 }

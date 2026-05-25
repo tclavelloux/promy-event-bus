@@ -1,0 +1,11 @@
+name: user.preferences.updated
+tier: 2
+description: "Fired when a user updates their notification or product preferences. Triggers preference re-scoring."
+fields:
+  user_id:
+    type: string
+    format: uuid
+    required: true
+    description: "Internal user identifier."
+example:
+  user_id: "550e8400-e29b-41d4-a716-446655440000"

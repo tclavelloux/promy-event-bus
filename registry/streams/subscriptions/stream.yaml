@@ -1,0 +1,3 @@
+stream: events:subscriptions
+owner: promy-user
+description: "Subscription lifecycle events — plan starts and cancellations."

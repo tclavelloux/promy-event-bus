@@ -75,6 +75,25 @@ example-subscriber:
 	@echo "Running subscriber example..."
 	go run examples/subscriber/main.go
 
+.PHONY: dlq-replay
+dlq-replay:
+	@echo "Replaying DLQ entries..."
+	go run cmd/dlq/main.go replay \
+		$(if $(stream),-stream $(stream)) \
+		$(if $(type),-type $(type)) \
+		$(if $(id),-id $(id)) \
+		$(if $(filter $(all),true),-all) \
+		$(if $(filter $(dry-run),true),-dry-run) \
+		$(if $(redis),-redis $(redis)) \
+		$(if $(limit),-limit $(limit))
+
+.PHONY: dlq-inspect
+dlq-inspect:
+	@echo "Inspecting DLQ..."
+	go run cmd/dlq/main.go inspect \
+		$(if $(redis),-redis $(redis)) \
+		$(if $(limit),-limit $(limit))
+
 .PHONY: help
 help:
 	@echo "Available targets:"
@@ -92,6 +111,8 @@ help:
 	@echo "  clean               - Clean build artifacts and cache"
 	@echo "  example-publisher   - Run publisher example"
 	@echo "  example-subscriber  - Run subscriber example"
+	@echo "  dlq-replay          - Replay DLQ entries (stream=, type=, id=, all=true, dry-run=true)"
+	@echo "  dlq-inspect         - Show DLQ statistics"
 	@echo "  git-status          - View git status with component grouping"
 	@echo "  git-log             - View recent commit history"
 	@echo "  git-diff            - View staged vs unstaged changes"

@@ -17,6 +17,10 @@ type Event interface {
 	// EventTime returns when the event occurred.
 	EventTime() time.Time
 
+	// Data returns the raw JSON payload as a string.
+	// Consumers use this to deserialize event content into their own DTOs.
+	Data() string
+
 	// Validate checks if the event is valid.
 	Validate() error
 }
@@ -54,6 +58,13 @@ func (e BaseEvent) EventID() string {
 // EventTime returns the event timestamp.
 func (e BaseEvent) EventTime() time.Time {
 	return e.Timestamp
+}
+
+// Data returns an empty string by default.
+// Concrete event structs should override this to return their JSON payload.
+// On the subscriber side, rawEvent.Data() returns the actual payload from Redis.
+func (e BaseEvent) Data() string {
+	return ""
 }
 
 // Validate performs basic validation on the base event.

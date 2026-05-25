@@ -9,11 +9,8 @@ import (
 	"time"
 
 	eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
-	"github.com/tclavelloux/promy-event-bus/events/product"
-	"github.com/tclavelloux/promy-event-bus/events/promotion"
-	"github.com/tclavelloux/promy-event-bus/events/user"
-	"github.com/tclavelloux/promy-event-bus/pkg/ptr"
 	"github.com/tclavelloux/promy-event-bus/redis"
+	"github.com/tclavelloux/promy-event-bus/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,11 +26,13 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 			DSN: "redis://localhost:6379/1",
 		},
 		Consumer: eventbus.ConsumerConfig{
-			Group:          "integration-test-group",
-			ConsumerID:     "consumer-1",
-			BlockDuration:  1 * time.Second,
-			BatchSize:      10,
-			MaxConcurrency: 5,
+			Group:      "integration-test-group",
+			ConsumerID: "consumer-1",
+			Defaults: eventbus.ConsumerStreamConfig{
+				BlockDuration:  1 * time.Second,
+				BatchSize:      10,
+				MaxConcurrency: 5,
+			},
 		},
 	}
 
@@ -46,7 +45,6 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		require.NoError(t, err)
 		defer subscriber.Close()
 
-		// Track received events with mutex for thread-safety
 		receivedEvents := make(map[string]bool)
 		var mu sync.Mutex
 
@@ -60,57 +58,45 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Start subscriber
 		go func() {
 			subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
 				Stream:         "events:integration-test",
 				ConsumerGroup:  config.Consumer.Group,
 				ConsumerID:     config.Consumer.ConsumerID,
 				Handler:        handler,
-				BatchSize:      config.Consumer.BatchSize,
-				BlockDuration:  config.Consumer.BlockDuration,
-				MaxConcurrency: config.Consumer.MaxConcurrency,
+				BatchSize:      config.Consumer.Defaults.BatchSize,
+				BlockDuration:  config.Consumer.Defaults.BlockDuration,
+				MaxConcurrency: config.Consumer.Defaults.MaxConcurrency,
 			})
 		}()
 
 		time.Sleep(100 * time.Millisecond)
 
-		// Publish multiple event types
-		promoEvent := promotion.NewPromotionCreatedEvent(
-			"integration-promo-1",
-			"Integration Product",
-			"dist-1",
-			"leaflet-1",
-			1,
-			19.99,
-			ptr.String("cat-1"),
-			ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
-			ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
-			ptr.String("https://example.com/integration.jpg"),
-			ptr.Float64(24.99),
-		)
+		promoEvent := testutil.NewTestEvent("promotion.created", map[string]any{
+			"promotion_id":   "integration-promo-1",
+			"promotion_name": "Integration Product",
+			"distributor_id": "dist-1",
+		})
 		err = publisher.Publish(context.Background(), "events:integration-test", promoEvent)
 		require.NoError(t, err)
 
-		userEvent := user.NewUserRegisteredEvent("user-integration-1", "integration@example.com")
+		userEvent := testutil.NewTestEvent("user.registered", map[string]any{
+			"user_id": "user-integration-1",
+			"email":   "integration@example.com",
+		})
 		err = publisher.Publish(context.Background(), "events:integration-test", userEvent)
 		require.NoError(t, err)
 
-		productEvent := product.NewProductIdentifiedEvent(
-			"integration-promo-1",
-			"prod-integration-1",
-			"electronics",
-			"cat-electronics",
-			ptr.String("BrandX"),
-			0.92,
-		)
+		productEvent := testutil.NewTestEvent("product.identified", map[string]any{
+			"promotion_id": "integration-promo-1",
+			"product_id":   "prod-integration-1",
+			"confidence":   0.92,
+		})
 		err = publisher.Publish(context.Background(), "events:integration-test", productEvent)
 		require.NoError(t, err)
 
-		// Wait for processing
 		time.Sleep(3 * time.Second)
 
-		// Verify all events were received
 		mu.Lock()
 		assert.True(t, receivedEvents[promoEvent.EventID()], "promotion event should be received")
 		assert.True(t, receivedEvents[userEvent.EventID()], "user event should be received")
@@ -123,7 +109,6 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		require.NoError(t, err)
 		defer publisher.Close()
 
-		// Create two subscribers in same group
 		subscriber1, err := redis.NewSubscriber(config)
 		require.NoError(t, err)
 		defer subscriber1.Close()
@@ -149,7 +134,6 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Start both subscribers
 		go func() {
 			subscriber1.Subscribe(ctx, eventbus.SubscriptionConfig{
 				Stream:         "events:load-balance-test",
@@ -176,29 +160,16 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		// Publish 10 events
 		for i := 0; i < 10; i++ {
-			event := promotion.NewPromotionCreatedEvent(
-				"load-balance-"+string(rune(i)),
-				"Product "+string(rune(i)),
-				"dist-1",
-				"leaflet-1",
-				1,
-				float64(i+1)*5.0, // Start at 5.0 to ensure price > 0
-				ptr.String("cat-1"),
-				ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/test.jpg"),
-				ptr.Float64(float64(i+1)*5.0),
-			)
+			event := testutil.NewTestEvent("promotion.created", map[string]any{
+				"promotion_id": "load-balance-" + string(rune('a'+i)),
+			})
 			err = publisher.Publish(context.Background(), "events:load-balance-test", event)
 			require.NoError(t, err)
 		}
 
-		// Wait for processing
 		time.Sleep(5 * time.Second)
 
-		// Both consumers should have processed some events
 		total := count1.Load() + count2.Load()
 		assert.Equal(t, int32(10), total, "all events should be processed")
 		assert.Greater(t, count1.Load(), int32(0), "consumer 1 should process some events")
@@ -238,31 +209,17 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		// Create batch of events
 		batchEvents := make([]eventbus.Event, 20)
 		for i := 0; i < 20; i++ {
-			batchEvents[i] = promotion.NewPromotionCreatedEvent(
-				"batch-"+string(rune(i)),
-				"Batch Product "+string(rune(i)),
-				"dist-1",
-				"leaflet-1",
-				1,
-				float64(i+1)*2.5, // Start at 2.5 to ensure price > 0
-				ptr.String("cat-1"),
-				ptr.Time(time.Date(2025, 11, 6, 0, 0, 0, 0, time.UTC)),
-				ptr.Time(time.Date(2025, 11, 7, 0, 0, 0, 0, time.UTC)),
-				ptr.String("https://example.com/batch.jpg"),
-				ptr.Float64(float64(i+1)*2.5),
-			)
+			batchEvents[i] = testutil.NewTestEvent("promotion.created", map[string]any{
+				"promotion_id": "batch-" + string(rune('a'+i)),
+			})
 		}
 
-		// Publish batch
 		err = publisher.PublishBatch(context.Background(), "events:batch-test", batchEvents)
 		require.NoError(t, err)
 
-		// Wait for processing
 		time.Sleep(3 * time.Second)
-
 		assert.Equal(t, int32(20), count.Load(), "all batch events should be processed")
 	})
 }

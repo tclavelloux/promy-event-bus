@@ -1,0 +1,36 @@
+name: product.created
+tier: 2
+description: "Fired when a canonical product record is created in the product catalogue."
+fields:
+  product_id:
+    type: string
+    format: uuid
+    required: true
+    description: "Unique product identifier."
+  name:
+    type: string
+    required: true
+    description: "Product name as identified."
+  normalized_name:
+    type: string
+    required: true
+    description: "Lowercased, trimmed product name used for deduplication."
+  product_type_id:
+    type: string
+    required: false
+    description: "Product type classification identifier."
+  brand:
+    type: string
+    required: false
+    description: "Brand name if identified."
+  created_at:
+    type: string
+    format: date-time
+    required: true
+    description: "ISO 8601 timestamp of product creation."
+example:
+  product_id: "prod-550e8400-e29b-41d4-a716-446655440000"
+  name: "Patate douce"
+  normalized_name: "patate douce"
+  product_type_id: "type-vegetables"
+  created_at: "2026-05-25T08:01:00Z"

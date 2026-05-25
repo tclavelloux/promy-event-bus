@@ -15,6 +15,12 @@ event_bus:
   consumer:
     group: ${APP_NAME}-consumers
     consumer_id: ${APP_NAME}-${HOSTNAME}
-    block_duration: 2s
-    batch_size: 50
-    max_concurrency: 10
+    defaults:
+      block_duration: 2s
+      batch_size: 50
+      max_concurrency: 10
+    streams:
+      events:users:
+        max_concurrency: 1    # strict ordering per user
+      events:promotions:
+        batch_size: 100       # high-volume stream, larger batches
