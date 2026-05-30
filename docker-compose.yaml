@@ -15,7 +15,7 @@ services:
       timeout: 3s
       retries: 5
 
-  redisinsight:
+  redisinsight: #Redis's official GUI
     container_name: promy-redisinsight
     image: redis/redisinsight:latest
     networks:
