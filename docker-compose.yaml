@@ -15,6 +15,17 @@ services:
       timeout: 3s
       retries: 5
 
+  redisinsight:
+    container_name: promy-redisinsight
+    image: redis/redisinsight:latest
+    networks:
+      - eventbus-network
+    ports:
+      - "5540:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+
 networks:
   eventbus-network:
     name: eventbus-network  # force exact name
