@@ -4,6 +4,9 @@ run:
   timeout: 5m
   concurrency: 8
 linters:
+  settings:
+    nolintlint:
+      allow-unused: true
   enable:
     - asasalint
     - asciicheck

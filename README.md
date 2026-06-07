@@ -276,6 +276,9 @@ make down              # stop Redis
 make dlq-inspect       # show DLQ stats
 make dlq-replay        # replay DLQ entries (see flags above)
 make help              # list all targets
+
+# Setup
+make setup             # Install pre-commit hooks
 ```
 
 ## Documentation

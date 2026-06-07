@@ -1,3 +1,8 @@
+.PHONY: setup
+setup:
+	pre-commit install
+	pre-commit install --hook-type commit-msg
+
 .PHONY: test
 test:
 	@echo "Running tests..."
