@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.0...v0.4.1) (2026-06-07)
+
+
+### Features
+
+* **docker-compose:** small comment ([d3658b4](https://github.com/tclavelloux/promy-event-bus/commit/d3658b4203d741c214ad4aa1bd77ab760d696c1d))
+* **docker:** add RedisInsight for local stream observability ([7755ce4](https://github.com/tclavelloux/promy-event-bus/commit/7755ce4aad401878dd2e12a2ff187c61788ddc9d))
+* **docker:** add RedisInsight for local stream observability ([e0571e8](https://github.com/tclavelloux/promy-event-bus/commit/e0571e80abcdd68a8bdc4cbeac9313a17b38a6e9))
+
+
+### Continuous Integration
+
+* add lint, test, and gitleaks GitHub Actions workflow ([416ed14](https://github.com/tclavelloux/promy-event-bus/commit/416ed147e2e9c7d2c7e8b23611d90dd528b29c4f))
+* **dev:** add CI workflow and pre-commit quality hooks ([d71cde2](https://github.com/tclavelloux/promy-event-bus/commit/d71cde2faede51fc5016860aae67dcc3ab6783c4))
+
+
+### Miscellaneous
+
+* **dev:** add pre-commit hooks with conventional-commits and gitleaks ([35536b1](https://github.com/tclavelloux/promy-event-bus/commit/35536b14d7554246b4ebdeffaa09feabc572906c))
+
 ## [0.4.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.1...v0.4.0) (2026-05-25)
 
 
