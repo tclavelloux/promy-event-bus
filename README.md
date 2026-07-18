@@ -271,7 +271,7 @@ make lint              # golangci-lint
 make fmt               # go fmt
 make vet               # go vet
 make tidy              # go mod tidy
-make up                # start Redis (docker-compose)
+make up                # start Redis + RedisInsight GUI at :5540 (docker-compose)
 make down              # stop Redis
 make dlq-inspect       # show DLQ stats
 make dlq-replay        # replay DLQ entries (see flags above)
@@ -294,4 +294,4 @@ make setup             # Install pre-commit hooks
 - [promy-identifier](https://github.com/tclavelloux/promy-identifier) - AI product identification service
 - [promy-crm](https://github.com/tclavelloux/promy-crm) - CRM service
 
-<!-- readme-updated-at: b2a5189 -->
+<!-- readme-updated-at: d71cde2 -->
