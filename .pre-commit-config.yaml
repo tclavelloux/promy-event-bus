@@ -36,3 +36,12 @@ repos:
       - id: go-fmt
       - id: go-vet
       - id: go-mod-tidy
+
+  - repo: local
+    hooks:
+      - id: check-coverage
+        name: check-coverage
+        entry: make check-coverage
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
