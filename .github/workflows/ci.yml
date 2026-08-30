@@ -57,7 +57,7 @@ jobs:
     needs: test
     uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@v1
     with:
-      total-threshold: 38
+      total-threshold: 68
       exclude-patterns: |
         main\.go:
         internal/bootstrap\.go:

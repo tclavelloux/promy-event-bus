@@ -4,15 +4,14 @@
 # tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml).
 #
 # Ratchet policy: floor is set to current achieved coverage rounded down to a
-# whole percent. Raise it as coverage grows — never lower it to make a PR pass.
-# Threshold placeholder pending a real CI run confirming the achieved total
-# under the reusable workflow's exclude set (see PR description).
+# whole percent (verified: 68.6%). Raise it as coverage grows — never lower it
+# to make a PR pass.
 profile: coverage.out
 
 threshold:
   file: 0
   package: 0
-  total: 38
+  total: 68
 
 exclude:
   paths:
