@@ -1,0 +1,24 @@
+# Single source of truth for coverage thresholds and exclusions, read by both
+# the pre-push hook (check-coverage in .pre-commit-config.yaml) and CI
+# (.github/workflows/ci.yml, which calls
+# tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml).
+#
+# Ratchet policy: floor is set to current achieved coverage rounded down to a
+# whole percent. Raise it as coverage grows — never lower it to make a PR pass.
+# Threshold placeholder pending a real CI run confirming the achieved total
+# under the reusable workflow's exclude set (see PR description).
+profile: coverage.out
+
+threshold:
+  file: 0
+  package: 0
+  total: 38
+
+exclude:
+  paths:
+    - main\.go$
+    - internal/bootstrap\.go$
+    - ^cmd/
+    - test/mock\.go$
+    - testdata
+    - ^examples/
