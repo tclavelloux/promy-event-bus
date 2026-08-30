@@ -263,7 +263,8 @@ examples/       Runnable publisher/subscriber demos
 ## Development
 
 ```bash
-make test              # all tests (requires Redis on localhost:6379)
+make test              # all tests (requires Redis on localhost:6389 — `make up` starts it via docker-compose;
+                        # override with REDIS_TEST_DSN if pointing at a different instance)
 make test-short        # unit tests only
 make test-integration  # start Redis via Docker, run tests, stop Redis
 make coverage          # generate coverage.html

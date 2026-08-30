@@ -23,7 +23,7 @@ func TestIntegration_PublishAndConsume(t *testing.T) {
 
 	config := eventbus.Config{
 		Redis: eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		},
 		Consumer: eventbus.ConsumerConfig{
 			Group:      "integration-test-group",

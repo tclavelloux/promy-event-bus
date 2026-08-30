@@ -13,7 +13,7 @@ test-integration:
 	@echo "Running integration tests..."
 	@docker-compose up -d redis
 	@sleep 2
-	@go test -v -race -cover ./...
+	@REDIS_TEST_DSN=redis://localhost:6389/15 go test -v -race -cover ./...
 	@docker-compose down
 
 .PHONY: test-short

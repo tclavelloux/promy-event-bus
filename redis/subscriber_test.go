@@ -20,7 +20,7 @@ func TestSubscriber_New(t *testing.T) {
 	t.Run("creates subscriber with valid config", func(t *testing.T) {
 		config := eventbus.Config{
 			Redis: eventbus.RedisConfig{
-				DSN: "redis://localhost:6379/1",
+				DSN: testDSN(t),
 			},
 			Consumer: eventbus.ConsumerConfig{
 				Group:      "test-group",
@@ -61,7 +61,7 @@ func TestSubscriber_New(t *testing.T) {
 func TestSubscriber_Subscribe(t *testing.T) {
 	config := eventbus.Config{
 		Redis: eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		},
 		Consumer: eventbus.ConsumerConfig{
 			Group:      "test-subscribe-group",
@@ -222,7 +222,7 @@ func TestSubscriber_Health(t *testing.T) {
 	t.Run("returns healthy when connected", func(t *testing.T) {
 		config := eventbus.Config{
 			Redis: eventbus.RedisConfig{
-				DSN: "redis://localhost:6379/1",
+				DSN: testDSN(t),
 			},
 		}
 
@@ -238,7 +238,7 @@ func TestSubscriber_Health(t *testing.T) {
 	t.Run("returns unhealthy after close", func(t *testing.T) {
 		config := eventbus.Config{
 			Redis: eventbus.RedisConfig{
-				DSN: "redis://localhost:6379/1",
+				DSN: testDSN(t),
 			},
 		}
 
@@ -259,7 +259,7 @@ func TestSubscriber_Close(t *testing.T) {
 	t.Run("closes successfully", func(t *testing.T) {
 		config := eventbus.Config{
 			Redis: eventbus.RedisConfig{
-				DSN: "redis://localhost:6379/1",
+				DSN: testDSN(t),
 			},
 		}
 
@@ -274,7 +274,7 @@ func TestSubscriber_Close(t *testing.T) {
 func TestSubscriber_EventData(t *testing.T) {
 	config := eventbus.Config{
 		Redis: eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		},
 		Consumer: eventbus.ConsumerConfig{
 			Group:      "test-data-group",

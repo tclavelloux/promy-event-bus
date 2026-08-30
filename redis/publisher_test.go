@@ -17,7 +17,7 @@ import (
 func TestPublisher_New(t *testing.T) {
 	t.Run("creates publisher with valid config", func(t *testing.T) {
 		config := eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		}
 
 		publisher, err := redis.NewPublisher(config)
@@ -55,7 +55,7 @@ func TestPublisher_New(t *testing.T) {
 
 func TestPublisher_Publish(t *testing.T) {
 	config := eventbus.RedisConfig{
-		DSN: "redis://localhost:6379/1",
+		DSN: testDSN(t),
 	}
 
 	publisher, err := redis.NewPublisher(config)
@@ -103,7 +103,7 @@ func TestPublisher_Publish(t *testing.T) {
 
 func TestPublisher_PublishBatch(t *testing.T) {
 	config := eventbus.RedisConfig{
-		DSN: "redis://localhost:6379/1",
+		DSN: testDSN(t),
 	}
 
 	publisher, err := redis.NewPublisher(config)
@@ -132,7 +132,7 @@ func TestPublisher_PublishBatch(t *testing.T) {
 func TestPublisher_Health(t *testing.T) {
 	t.Run("returns healthy when connected", func(t *testing.T) {
 		config := eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		}
 
 		publisher, err := redis.NewPublisher(config)
@@ -146,7 +146,7 @@ func TestPublisher_Health(t *testing.T) {
 
 	t.Run("returns unhealthy after close", func(t *testing.T) {
 		config := eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		}
 
 		publisher, err := redis.NewPublisher(config)
@@ -165,7 +165,7 @@ func TestPublisher_Health(t *testing.T) {
 func TestPublisher_Close(t *testing.T) {
 	t.Run("closes successfully", func(t *testing.T) {
 		config := eventbus.RedisConfig{
-			DSN: "redis://localhost:6379/1",
+			DSN: testDSN(t),
 		}
 
 		publisher, err := redis.NewPublisher(config)

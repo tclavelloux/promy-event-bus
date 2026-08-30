@@ -5,6 +5,10 @@ services:
     networks:
       - eventbus-network
     ports:
+      # Deliberately not the 6379 default, so this doesn't collide with an
+      # unrelated Redis a developer may already be running for another
+      # project. redis/helper_test.go's testDSN() defaults to this same
+      # port (DB 15) — change both together, or set REDIS_TEST_DSN. See #25.
       - "6389:6379"
     volumes:
       - redis-data:/data
