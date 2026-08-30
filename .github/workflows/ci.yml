@@ -38,6 +38,12 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    env:
+      # This repo's own docker-compose maps Redis to host port 6389, not the
+      # 6379 default (see #25) — GitHub Actions service containers don't
+      # offer that same remapping, so point tests at the CI container's real
+      # port instead of relying on the local-dev default in redis/helper_test.go.
+      REDIS_TEST_DSN: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
 
