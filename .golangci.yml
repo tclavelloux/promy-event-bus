@@ -7,6 +7,12 @@ linters:
   settings:
     nolintlint:
       allow-unused: true
+    goconst:
+      # In table-driven tests the repeated literal is the fixture: independent
+      # data that happens to be equal, not one shared concept. Hoisting it into
+      # a constant couples cases that should stay free to diverge.
+      ignore-tests: true
+      ignore-map-keys: true
   enable:
     - asasalint
     - asciicheck
@@ -31,7 +37,7 @@ linters:
     - godox
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - grouper
