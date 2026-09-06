@@ -55,7 +55,7 @@ logs:
 .PHONY: lint
 lint:
 	@echo "Running linter..."
-	golangci-lint run
+	scripts/golangci-lint.sh run --timeout=5m
 
 .PHONY: fmt
 fmt:
@@ -166,4 +166,4 @@ git-check:
 	@go test ./... -short
 	@echo ""
 	@echo "=== Running Linter ==="
-	@golangci-lint run --timeout=5m
+	@scripts/golangci-lint.sh run --timeout=5m
