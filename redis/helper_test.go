@@ -3,10 +3,12 @@ package redis_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -54,4 +56,34 @@ func testDSN(t *testing.T) string {
 	})
 
 	return dsn
+}
+
+// testClient returns a raw go-redis client pointed at testDSN(t), for tests
+// that need to hand-craft stream entries (XAdd) or assert directly on Redis
+// state (e.g., events:dlq contents) rather than going through the Publisher
+// and Subscriber wrappers. The client is closed via t.Cleanup.
+func testClient(t *testing.T) *goredis.Client {
+	t.Helper()
+
+	opts, err := goredis.ParseURL(testDSN(t))
+	if err != nil {
+		t.Fatalf("invalid DSN: %v", err)
+	}
+
+	client := goredis.NewClient(opts)
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	return client
+}
+
+// uniqueStream returns a per-test stream name so parallel or sequential test
+// runs never collide on the same stream/consumer-group state. Every NEW test
+// added to this package must use it; existing tests keep their hardcoded
+// stream names (out of scope for this change).
+func uniqueStream(t *testing.T, prefix string) string {
+	t.Helper()
+
+	return fmt.Sprintf("events:%s-%s", prefix, uuid.NewString())
 }

@@ -226,14 +226,17 @@ func calculateBackoff(attempt int) time.Duration {
 		return 0
 	}
 
-	backoff := time.Duration(100*math.Pow(5, float64(attempt-2))) * time.Millisecond
+	// Compare in float64 milliseconds before casting to time.Duration: for large
+	// attempt counts, 100*5^(attempt-2) overflows int64 once multiplied by
+	// time.Millisecond, producing a negative garbage duration.
+	const capMillis = 10_000.0
 
-	// Cap at 10 seconds
-	if backoff > 10*time.Second {
+	backoffMillis := 100 * math.Pow(5, float64(attempt-2))
+	if backoffMillis > capMillis || math.IsInf(backoffMillis, 1) {
 		return 10 * time.Second
 	}
 
-	return backoff
+	return time.Duration(backoffMillis) * time.Millisecond
 }
 
 // parseTime parses RFC3339 timestamp.
