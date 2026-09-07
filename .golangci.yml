@@ -5,8 +5,6 @@ run:
   concurrency: 8
 linters:
   settings:
-    nolintlint:
-      allow-unused: true
     goconst:
       # In table-driven tests the repeated literal is the fixture: independent
       # data that happens to be equal, not one shared concept. Hoisting it into

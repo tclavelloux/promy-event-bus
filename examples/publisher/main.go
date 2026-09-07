@@ -1,4 +1,3 @@
-//nolint:all // Example file
 package main
 
 import (
