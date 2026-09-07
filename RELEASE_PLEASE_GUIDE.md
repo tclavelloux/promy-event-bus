@@ -240,4 +240,3 @@ The combination gives you:
 3. Watch Release Please create your first Release PR
 4. Review and merge the Release PR
 5. See your first automated GitHub Release!
-

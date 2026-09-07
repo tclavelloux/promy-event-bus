@@ -1,4 +1,3 @@
-//nolint:all // Test file
 package redis
 
 import (

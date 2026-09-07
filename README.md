@@ -282,6 +282,18 @@ make help              # list all targets
 make setup             # Install pre-commit hooks
 ```
 
+### Local quality gate
+
+`make setup` is not optional. Without it no git hooks are installed, so nothing lints, formats or scans for secrets until CI does. It needs `pre-commit` on the machine (`brew install pre-commit`).
+
+| Stage | Checks |
+|---|---|
+| `pre-commit` | golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
+| `commit-msg` | Conventional Commits |
+| `pre-push` | `make check-coverage` against [`.testcoverage.yml`](.testcoverage.yml) |
+
+The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted, and no hook mutates the working tree.
+
 ## Documentation
 
 - [HOWTO.md](HOWTO.md) - Integration guide for downstream Yokai services
