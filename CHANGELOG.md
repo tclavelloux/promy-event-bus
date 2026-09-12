@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.4.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.0...v0.4.1) (2026-09-12)
+
+
+### Features
+
+* **docker-compose:** small comment ([d3658b4](https://github.com/tclavelloux/promy-event-bus/commit/d3658b4203d741c214ad4aa1bd77ab760d696c1d))
+* **docker:** add RedisInsight for local stream observability ([7755ce4](https://github.com/tclavelloux/promy-event-bus/commit/7755ce4aad401878dd2e12a2ff187c61788ddc9d))
+* **docker:** add RedisInsight for local stream observability ([e0571e8](https://github.com/tclavelloux/promy-event-bus/commit/e0571e80abcdd68a8bdc4cbeac9313a17b38a6e9))
+
+
+### Bug Fixes
+
+* **deps:** remediate called CVEs, bump go to 1.26.8 ([7d557c2](https://github.com/tclavelloux/promy-event-bus/commit/7d557c2ab51ab50dbac69840e5bd6bb8303d9a3a))
+* **deps:** remediate called CVEs, bump go to 1.26.8 ([#33](https://github.com/tclavelloux/promy-event-bus/issues/33)) ([2e812a3](https://github.com/tclavelloux/promy-event-bus/commit/2e812a34b2b26f70a069a9f3fb774d528819f856))
+* stop Redis-backed tests from hardcoding localhost:6379 ([#28](https://github.com/tclavelloux/promy-event-bus/issues/28)) ([89d8253](https://github.com/tclavelloux/promy-event-bus/commit/89d82538c396f2d110fd6c7ffbe10acf30ee8fdf)), closes [#25](https://github.com/tclavelloux/promy-event-bus/issues/25)
+
+
+### Tests
+
+* raise coverage floor to 85% ([#29](https://github.com/tclavelloux/promy-event-bus/issues/29)) ([baad4b4](https://github.com/tclavelloux/promy-event-bus/commit/baad4b4d80df0a4488a92c261edca4b761ba3ed6)), closes [#27](https://github.com/tclavelloux/promy-event-bus/issues/27)
+
+
+### Continuous Integration
+
+* add lint, test, and gitleaks GitHub Actions workflow ([416ed14](https://github.com/tclavelloux/promy-event-bus/commit/416ed147e2e9c7d2c7e8b23611d90dd528b29c4f))
+* **coverage:** adopt go-coverage.yml v2 ([7089cda](https://github.com/tclavelloux/promy-event-bus/commit/7089cda2e1f1aab7d1749ac2012738f3a9388b68))
+* **coverage:** adopt go-coverage.yml v2 ([#32](https://github.com/tclavelloux/promy-event-bus/issues/32)) ([2d8e7d2](https://github.com/tclavelloux/promy-event-bus/commit/2d8e7d2439e1863c93df76a1040329273e28eee7))
+* **dev:** add CI workflow and pre-commit quality hooks ([d71cde2](https://github.com/tclavelloux/promy-event-bus/commit/d71cde2faede51fc5016860aae67dcc3ab6783c4))
+* enforce coverage gate via reusable workflow ([#26](https://github.com/tclavelloux/promy-event-bus/issues/26)) ([b16f81f](https://github.com/tclavelloux/promy-event-bus/commit/b16f81f2df83bf2653b638a92769c25ded57e830))
+* **lint:** adopt the reusable go-lint workflow ([#30](https://github.com/tclavelloux/promy-event-bus/issues/30)) ([859f074](https://github.com/tclavelloux/promy-event-bus/commit/859f0742401d7f998b3d4978ce0c1d7641529afe))
+
+
+### Documentation
+
+* **readme:** note RedisInsight in make up and bump watermark ([87c5dbb](https://github.com/tclavelloux/promy-event-bus/commit/87c5dbbfaa87d57684290dbaa3c74a0c10c21164))
+* **readme:** note RedisInsight in make up and bump watermark ([103be04](https://github.com/tclavelloux/promy-event-bus/commit/103be042fbdf7e830f35b630f8099324ad643da4))
+
+
+### Miscellaneous
+
+* **dev:** add pre-commit hooks with conventional-commits and gitleaks ([35536b1](https://github.com/tclavelloux/promy-event-bus/commit/35536b14d7554246b4ebdeffaa09feabc572906c))
+* **hooks:** add a pinned local lint gate ([#31](https://github.com/tclavelloux/promy-event-bus/issues/31)) ([e16aecb](https://github.com/tclavelloux/promy-event-bus/commit/e16aecbcd98a2e71794871ea9e70075d1e6b9943))
+
 ## [0.4.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.1...v0.4.0) (2026-05-25)
 
 
