@@ -12,7 +12,10 @@ permissions:
 
 jobs:
   lint:
-    uses: tclavelloux/promy-github-workflows/.github/workflows/go-lint.yml@v1
+    uses: tclavelloux/promy-github-workflows/.github/workflows/go-lint.yml@go-lint/v1
+
+  vuln:
+    uses: tclavelloux/promy-github-workflows/.github/workflows/go-vuln.yml@go-vuln/v1
 
   test:
     runs-on: ubuntu-latest
@@ -49,7 +52,7 @@ jobs:
 
   coverage:
     needs: test
-    uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@v2
+    uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@go-coverage/v2
     secrets: inherit
 
   gitleaks:
