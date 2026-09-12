@@ -49,17 +49,7 @@ jobs:
 
   coverage:
     needs: test
-    uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@v1
-    with:
-      total-threshold: 85
-      exclude-patterns: |
-        main\.go:
-        internal/bootstrap\.go:
-        /cmd/
-        test/mock\.go:
-        testdata
-        examples/
-      module-prefix: github.com/tclavelloux/promy-event-bus/
+    uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@v2
     secrets: inherit
 
   gitleaks:
