@@ -3,22 +3,28 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   lint:
+    if: github.event.pull_request.draft == false
     uses: tclavelloux/promy-github-workflows/.github/workflows/go-lint.yml@go-lint/v1
 
   vuln:
+    if: github.event.pull_request.draft == false
     uses: tclavelloux/promy-github-workflows/.github/workflows/go-vuln.yml@go-vuln/v1
 
   test:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     services:
       redis:
         image: redis:7
@@ -43,20 +49,34 @@ jobs:
           go-version-file: go.mod
 
       - name: Run tests
-        run: go test -v -race -failfast -coverpkg=./... -covermode=atomic -coverprofile=coverage.raw.out -count=1 ./...
+        run: go test -race -failfast -coverpkg=./... -covermode=atomic -coverprofile=coverage.raw.out -count=1 ./...
 
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-profile
           path: coverage.raw.out
+          retention-days: 1
+          if-no-files-found: error
 
   coverage:
+    if: github.event.pull_request.draft == false
     needs: test
+    permissions:
+      contents: read
+      pull-requests: write
     uses: tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml@go-coverage/v2
     secrets: inherit
 
   gitleaks:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # gitleaks-action@v2 reads GET /repos/{repo}/pulls/{n}/commits to scope the
+    # scan to the PR's commit range, so it needs pull-requests: read. It posts
+    # nothing, so read is enough -- write is not.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
