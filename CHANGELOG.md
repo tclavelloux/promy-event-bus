@@ -7,12 +7,10 @@
 
 * **docker-compose:** small comment ([d3658b4](https://github.com/tclavelloux/promy-event-bus/commit/d3658b4203d741c214ad4aa1bd77ab760d696c1d))
 * **docker:** add RedisInsight for local stream observability ([7755ce4](https://github.com/tclavelloux/promy-event-bus/commit/7755ce4aad401878dd2e12a2ff187c61788ddc9d))
-* **docker:** add RedisInsight for local stream observability ([e0571e8](https://github.com/tclavelloux/promy-event-bus/commit/e0571e80abcdd68a8bdc4cbeac9313a17b38a6e9))
 
 
 ### Bug Fixes
 
-* **deps:** remediate called CVEs, bump go to 1.26.8 ([7d557c2](https://github.com/tclavelloux/promy-event-bus/commit/7d557c2ab51ab50dbac69840e5bd6bb8303d9a3a))
 * **deps:** remediate called CVEs, bump go to 1.26.8 ([#33](https://github.com/tclavelloux/promy-event-bus/issues/33)) ([2e812a3](https://github.com/tclavelloux/promy-event-bus/commit/2e812a34b2b26f70a069a9f3fb774d528819f856))
 * stop Redis-backed tests from hardcoding localhost:6379 ([#28](https://github.com/tclavelloux/promy-event-bus/issues/28)) ([89d8253](https://github.com/tclavelloux/promy-event-bus/commit/89d82538c396f2d110fd6c7ffbe10acf30ee8fdf)), closes [#25](https://github.com/tclavelloux/promy-event-bus/issues/25)
 
@@ -25,7 +23,6 @@
 ### Continuous Integration
 
 * add lint, test, and gitleaks GitHub Actions workflow ([416ed14](https://github.com/tclavelloux/promy-event-bus/commit/416ed147e2e9c7d2c7e8b23611d90dd528b29c4f))
-* **coverage:** adopt go-coverage.yml v2 ([7089cda](https://github.com/tclavelloux/promy-event-bus/commit/7089cda2e1f1aab7d1749ac2012738f3a9388b68))
 * **coverage:** adopt go-coverage.yml v2 ([#32](https://github.com/tclavelloux/promy-event-bus/issues/32)) ([2d8e7d2](https://github.com/tclavelloux/promy-event-bus/commit/2d8e7d2439e1863c93df76a1040329273e28eee7))
 * **dev:** add CI workflow and pre-commit quality hooks ([d71cde2](https://github.com/tclavelloux/promy-event-bus/commit/d71cde2faede51fc5016860aae67dcc3ab6783c4))
 * enforce coverage gate via reusable workflow ([#26](https://github.com/tclavelloux/promy-event-bus/issues/26)) ([b16f81f](https://github.com/tclavelloux/promy-event-bus/commit/b16f81f2df83bf2653b638a92769c25ded57e830))
@@ -35,7 +32,6 @@
 ### Documentation
 
 * **readme:** note RedisInsight in make up and bump watermark ([87c5dbb](https://github.com/tclavelloux/promy-event-bus/commit/87c5dbbfaa87d57684290dbaa3c74a0c10c21164))
-* **readme:** note RedisInsight in make up and bump watermark ([103be04](https://github.com/tclavelloux/promy-event-bus/commit/103be042fbdf7e830f35b630f8099324ad643da4))
 
 
 ### Miscellaneous
@@ -84,10 +80,8 @@
 ### Miscellaneous
 
 * **cursor:** remove tracked cursor rules and docs from repo ([6926110](https://github.com/tclavelloux/promy-event-bus/commit/69261107ae8b1a27af84c384df854d6876a30c1f))
-* **cursor:** remove tracked cursor rules and docs from repo ([036215e](https://github.com/tclavelloux/promy-event-bus/commit/036215ef25250dc3f51e79233e552220926ef63d))
 * **docs:** remove outdated cursor git workflow docs ([dc45743](https://github.com/tclavelloux/promy-event-bus/commit/dc457430cad2aa7855495e5d1e0d1cf823bb1fbb))
 * **gh actions:** wire token ([363ef5b](https://github.com/tclavelloux/promy-event-bus/commit/363ef5b9550abdd908f9631d4710f8817dd25278))
-* **gh actions:** wire token ([0100449](https://github.com/tclavelloux/promy-event-bus/commit/01004499732a860af61e6d5e09dfc95c68e146ba))
 * port infrastructure and tooling adaptations ([f9a12cd](https://github.com/tclavelloux/promy-event-bus/commit/f9a12cdf9aedd01ae6af541112af2de32c1d1540))
 
 ## [0.3.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.3.0...v0.3.1) (2025-12-13)
@@ -97,7 +91,6 @@
 
 * **deploy:** add Railway deployment for Redis service ([93d02a6](https://github.com/tclavelloux/promy-event-bus/commit/93d02a6062b52e8368b9debd2d97cdd1e0fb5a9f))
 * **events:** update promotion event date handling ([fb954e0](https://github.com/tclavelloux/promy-event-bus/commit/fb954e033ac6dc69cdd76376b984024dba0a0f00))
-* **events:** update promotion event date handling ([2af8ee4](https://github.com/tclavelloux/promy-event-bus/commit/2af8ee4a95ea9908828d9f42e785076f03cb6a52))
 
 
 ### Documentation
@@ -157,13 +150,11 @@
 
 * **deps:** add go-playground/validator/v10 for struct validation ([bda0a48](https://github.com/tclavelloux/promy-event-bus/commit/bda0a487ee327425a32013aa291c5dbebc079907))
 * **workflow:** add git workflow and release management ([45a5825](https://github.com/tclavelloux/promy-event-bus/commit/45a5825e3347a8b508618ad53fc495ccaac3560f))
-* **workflow:** add git workflow and release management ([6dc1f8d](https://github.com/tclavelloux/promy-event-bus/commit/6dc1f8d0a713015b6ff7fac25cdd01748e55b774))
 
 
 ### Miscellaneous
 
 * **main:** release 0.2.0 ([7b3ba83](https://github.com/tclavelloux/promy-event-bus/commit/7b3ba833f12ee397d278a30924d0247b2f3416e7))
-* **main:** release 0.2.0 ([0f1a5e8](https://github.com/tclavelloux/promy-event-bus/commit/0f1a5e8268ab12ca13217ad43e136c78dbaccc3a))
 
 ## [0.2.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.1.0...v0.2.0) (2025-11-19)
 
