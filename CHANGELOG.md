@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.1...v0.4.2) (2026-09-13)
+
+
+### Build System
+
+* **deps:** bump github.com/stretchr/testify from 1.8.4 to 1.12.1 ([#41](https://github.com/tclavelloux/promy-event-bus/issues/41)) ([e51c79d](https://github.com/tclavelloux/promy-event-bus/commit/e51c79dc3501973f9d6d61cf4a08ce53773baef1))
+
+
+### Continuous Integration
+
+* pin actions to SHAs, add Dependabot and the PR-title check ([#37](https://github.com/tclavelloux/promy-event-bus/issues/37)) ([0462a6b](https://github.com/tclavelloux/promy-event-bus/commit/0462a6b7da3f420d0213d98e3b26a356b4069ae5))
+* pin release-please-action by SHA ([#43](https://github.com/tclavelloux/promy-event-bus/issues/43)) ([44f5364](https://github.com/tclavelloux/promy-event-bus/commit/44f5364b22a2303617bcb3788f8228b164ffae09))
+* scope permissions, add concurrency and job timeouts ([#36](https://github.com/tclavelloux/promy-event-bus/issues/36)) ([bf4281d](https://github.com/tclavelloux/promy-event-bus/commit/bf4281de391c6f48121a86f2168e12216c834d4a))
+
+
+### Miscellaneous
+
+* **changelog:** remove entries duplicated by merge commits ([#34](https://github.com/tclavelloux/promy-event-bus/issues/34)) ([7cfe73e](https://github.com/tclavelloux/promy-event-bus/commit/7cfe73ecbe92df27eaf85e257690ea65c694bb8d))
+
 ## [0.4.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.0...v0.4.1) (2026-09-12)
 
 
