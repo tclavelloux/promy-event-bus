@@ -37,6 +37,13 @@ check-coverage: install-go-test-coverage
 	go test -race -failfast -coverpkg=./... -covermode=atomic -coverprofile=coverage.out -count=1 ./...
 	$$(go env GOPATH)/bin/go-test-coverage --config=./.testcoverage.yml
 
+# Requires the `go-vuln` hook in .pre-commit-config.yaml (rev hooks/v1.1.0 or later);
+# its `stages: [pre-push, manual]` is inherited from the hook definition.
+# Same pinned govulncheck + Go toolchain as CI's `vuln` job; blocks on any called vuln.
+.PHONY: vuln
+vuln:
+	pre-commit run go-vuln --hook-stage manual
+
 .PHONY: up
 up:
 	@echo "Starting Redis..."
