@@ -1,4 +1,13 @@
+# `pre-commit install` only writes the hook types listed here. Without this line it writes
+# .git/hooks/pre-commit alone, and the commit-msg and pre-push stages below never fire.
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+
 repos:
+  - repo: https://github.com/tclavelloux/promy-github-workflows
+    rev: hooks/v1.0.0
+    hooks:
+      - id: no-direct-commit-to-main
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -58,9 +67,13 @@ repos:
         language: system
         pass_filenames: false
         files: '(\.go|go\.mod|go\.sum)$'
+      # `make check-coverage` runs the race suite itself, so no separate `test` pre-push
+      # hook — that would run the suite twice per push. always_run keeps the gate alive on
+      # pushes that touch no .go files.
       - id: check-coverage
         name: check-coverage
         entry: make check-coverage
         language: system
         pass_filenames: false
+        always_run: true
         stages: [pre-push]
