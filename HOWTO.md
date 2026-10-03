@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.3 - DLQ routing and replay tooling (May 2026)
+> **Version**: 2.4 - Quick Start, library development guide, registry PR steps (October 2026)
 >
 > **Changelog:**
+> - v2.4: Quick Start (plain Go) and "Developing promy-event-bus" moved here from the README; DLQ replay flags and semantics; per-stream override accessor; "add event" and "add stream" FAQ steps now go through the registry
 > - v2.3: DLQ routing is now automatic via `DLQPublisher` on `SubscriptionConfig`; added DLQ section; updated worker example with DLQ fields; removed stale `Data()` prerequisite warning; fixed `EventTime()` method name in examples
 > - v2.2: Tier 1 publish pattern documented as "publish-before-commit" (publish inside open DB transaction, commit only after Redis confirms); replaces naive synchronous publish that had a partial-failure window; transactional outbox deferred to Phase 7
 > - v2.1: Stream ownership map - consumers column removed (each service manages its own subscriptions independently); `events:products` ownership corrected to `promy-product`; `events:identifications` added as `promy-identifier`'s own stream; single-owner rule made explicit
@@ -16,20 +17,22 @@
 2. [Stream Ownership Map](#stream-ownership-map)
 3. [Prerequisites](#prerequisites)
 4. [Dependency Installation](#dependency-installation)
-5. [Configuration](#configuration)
-6. [Docker Compose Setup](#docker-compose-setup)
-7. [Event Criticality Tiers](#event-criticality-tiers)
-8. [Dead-Letter Queue (DLQ)](#dead-letter-queue-dlq)
-9. [Publisher Integration](#publisher-integration)
-10. [Subscriber Integration](#subscriber-integration)
-11. [Multi-Stream Worker Topology](#multi-stream-worker-topology)
-12. [FX Wiring & Registration](#fx-wiring--registration)
-13. [Bootstrap & TestBootstrapper](#bootstrap--testbootstrapper)
-14. [Testing Strategy](#testing-strategy)
-15. [Graceful Degradation](#graceful-degradation)
-16. [Reference: Naming Conventions](#reference-naming-conventions)
-17. [Reference: Config Keys](#reference-config-keys)
-18. [FAQ](#faq)
+5. [Quick Start (plain Go)](#quick-start-plain-go)
+6. [Configuration](#configuration)
+7. [Docker Compose Setup](#docker-compose-setup)
+8. [Event Criticality Tiers](#event-criticality-tiers)
+9. [Dead-Letter Queue (DLQ)](#dead-letter-queue-dlq)
+10. [Publisher Integration](#publisher-integration)
+11. [Subscriber Integration](#subscriber-integration)
+12. [Multi-Stream Worker Topology](#multi-stream-worker-topology)
+13. [FX Wiring & Registration](#fx-wiring--registration)
+14. [Bootstrap & TestBootstrapper](#bootstrap--testbootstrapper)
+15. [Testing Strategy](#testing-strategy)
+16. [Graceful Degradation](#graceful-degradation)
+17. [Developing promy-event-bus](#developing-promy-event-bus)
+18. [Reference: Naming Conventions](#reference-naming-conventions)
+19. [Reference: Config Keys](#reference-config-keys)
+20. [FAQ](#faq)
 
 ---
 
@@ -157,6 +160,119 @@ go get github.com/ankorstore/yokai/fxworker
 
 ---
 
+## Quick Start (plain Go)
+
+Minimal publisher and subscriber without Yokai. For FX wiring see [Publisher Integration](#publisher-integration) and [Subscriber Integration](#subscriber-integration). Runnable versions: [`examples/`](examples/) (`make example-publisher`, `make example-subscriber`).
+
+### Publishing
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+
+    eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+    "github.com/tclavelloux/promy-event-bus/redis"
+    "github.com/tclavelloux/promy-event-bus/streams"
+)
+
+func main() {
+    publisher, err := redis.NewPublisher(eventbus.RedisConfig{
+        DSN:      "redis://localhost:6379/0",
+        PoolSize: 10,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer publisher.Close()
+
+    // Event structs live in each service (not in this library).
+    // They must implement eventbus.Event.
+    event := myservice.NewUserRegisteredEvent("user-123", "john@example.com")
+
+    if err := publisher.Publish(context.Background(), streams.StreamUsers, event); err != nil {
+        log.Printf("Failed to publish: %v", err)
+    }
+}
+```
+
+### Subscribing
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+
+    eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
+    "github.com/tclavelloux/promy-event-bus/redis"
+    "github.com/tclavelloux/promy-event-bus/streams"
+)
+
+func main() {
+    config := eventbus.Config{
+        Redis: eventbus.RedisConfig{DSN: "redis://localhost:6379/0", PoolSize: 10},
+        Consumer: eventbus.ConsumerConfig{
+            Group:      "notification-service",
+            ConsumerID: "worker-1",
+            Defaults: eventbus.ConsumerStreamConfig{
+                BatchSize:      10,
+                BlockDuration:  2 * time.Second,
+                MaxConcurrency: 5,
+            },
+        },
+    }
+
+    subscriber, err := redis.NewSubscriber(config)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer subscriber.Close()
+
+    // Optional: create a publisher for DLQ routing on exhausted retries
+    dlqPublisher, _ := redis.NewPublisher(config.Redis)
+
+    handler := func(ctx context.Context, event eventbus.Event) error {
+        log.Printf("Processing: %s (%s)", event.EventID(), event.EventType())
+        // return error to trigger retry; nil = success
+        return nil
+    }
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+    go func() { <-sigChan; cancel() }()
+
+    streamCfg := config.Consumer.StreamConfig(streams.StreamUsers)
+
+    err = subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
+        Stream:         streams.StreamUsers,
+        ConsumerGroup:  config.Consumer.Group,
+        ConsumerID:     config.Consumer.ConsumerID,
+        Handler:        handler,
+        BatchSize:      streamCfg.BatchSize,
+        BlockDuration:  streamCfg.BlockDuration,
+        MaxConcurrency: streamCfg.MaxConcurrency,
+        DLQPublisher:   dlqPublisher, // nil = silent drop after max retries
+        DLQService:     "notification-service",
+    })
+    if err != nil && err != context.Canceled {
+        log.Fatal(err)
+    }
+}
+```
+
+---
+
 ## Configuration
 
 All event bus configuration lives under `modules.event_bus` in `configs/config.yaml`.
@@ -185,6 +301,13 @@ modules:
         events:users:
           max_concurrency: 1   # strict ordering: user.registered before user.preferences.updated
         # events:promotions:   # inherits defaults, no override needed
+```
+
+Read the effective values in Go. Non-zero fields in `streams.<name>` override `defaults`; zero fields inherit:
+
+```go
+cfg := config.Consumer.StreamConfig("events:users")
+// cfg.MaxConcurrency == 10 (overridden), cfg.BatchSize == 10 (default)
 ```
 
 ### Key rules
@@ -372,7 +495,11 @@ make dlq-replay stream=events:users       # replay all entries for a stream
 make dlq-replay type=user.registered      # replay by event type
 make dlq-replay id=1685000000000-0        # replay single entry by Redis message ID
 make dlq-replay all=true dry-run=true     # dry-run: list without replaying
+make dlq-replay stream=events:subscriptions dry-run=true   # dry-run for one stream
 ```
+
+- Replay re-publishes the original payload to the original stream, then deletes the DLQ entry. Delivery is at-least-once.
+- Both `dlq-inspect` and `dlq-replay` accept `redis=<dsn>` and `limit=<n>`. Scan caps differ per command (inspect 10000, replay 1000; see [`cmd/dlq/main.go`](cmd/dlq/main.go)).
 
 ---
 
@@ -996,6 +1123,62 @@ For Tier 1 events, Redis unavailability at publish time causes the request to fa
 
 ---
 
+## Developing promy-event-bus
+
+Applies to contributors to this library, not to consuming services.
+
+```bash
+make test              # all tests (Redis on localhost:6389/15 — `make up` starts it via docker-compose;
+                        # override with REDIS_TEST_DSN if pointing at a different instance)
+make test-short        # unit tests only
+make test-integration  # start Redis via Docker, run tests, stop Redis
+make coverage          # generate coverage.html
+make check-coverage    # race suite + thresholds from .testcoverage.yml (same gate as pre-push)
+make lint              # golangci-lint
+make fmt               # go fmt
+make vet               # go vet
+make tidy              # go mod tidy
+make up                # start Redis + RedisInsight GUI at :5540 (docker-compose)
+make down              # stop Redis
+make dlq-inspect       # show DLQ stats
+make dlq-replay        # replay DLQ entries (flags: see Dead-Letter Queue > Operator tooling)
+make example-publisher   # run examples/publisher
+make example-subscriber  # run examples/subscriber
+make help              # list all targets
+
+# Setup
+make setup             # pre-commit install --install-hooks (pre-commit, commit-msg, pre-push)
+```
+
+### Local quality gate
+
+`make setup` is not optional. Without it no git hooks are installed, so nothing lints, formats or scans for secrets until CI does.
+
+- Install `pre-commit` first (`brew install pre-commit`); `make setup` fails without it.
+- `make setup` installs all three hook types (`default_install_hook_types` in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)).
+- A hand-written `.git/hooks/pre-commit` is moved to `pre-commit.legacy` and keeps running. Delete it after setup.
+
+| Stage | Checks |
+|---|---|
+| `pre-commit` | `no-direct-commit-to-main` (shared hook, blocks commits on `main`), golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
+| `commit-msg` | Conventional Commits |
+| `pre-push` | `make check-coverage`: full race suite, then thresholds from [`.testcoverage.yml`](.testcoverage.yml) (also read by the CI `coverage` job). Runs on every push, including pushes without `.go` files |
+
+The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted. The Go lint and tidy hooks only report: they fail without touching your files. The `trailing-whitespace` and `end-of-file-fixer` hooks rewrite files and fail the commit; re-stage the fixed files and commit again.
+
+### CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `pull_request` to `main` (opened, synchronize, ready_for_review, reopened). Draft PRs skip every job. No `push: main` trigger.
+
+- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`).
+- `test`: `go test -race` against a Redis service container (`REDIS_TEST_DSN=redis://localhost:6379/15`); uploads the coverage profile.
+- `coverage`: reusable `go-coverage/v2`; needs `test`; thresholds from [`.testcoverage.yml`](.testcoverage.yml).
+- `gitleaks`: scans the PR commit range. No `docker` job: this is a library.
+- [`pr-title.yml`](.github/workflows/pr-title.yml) is a separate workflow.
+- Squash-merge only: the PR title becomes the commit on `main`. It must be a Conventional Commits string; release-please parses it.
+
+---
+
 ## Reference: Naming Conventions
 
 ### Package layout
@@ -1099,17 +1282,18 @@ Check before processing; skip (return nil) if already seen.
 
 ### Q: How do I add a new event type?
 
-1. Add the event struct to `internal/events/` in the **producing service**
-2. Add the type constant to `internal/events/types.go` in the producing service
-3. Publish using the new struct - no changes to `promy-event-bus` needed
-4. Notify consuming teams of the new event type and its payload schema
-5. Consuming services add a new `case` in their worker's `handleEvent` switch
+1. Open a PR on `promy-event-bus` adding `registry/streams/<domain>/events/<event-name>.yaml` (contract; validated by CI). See README > Event Schema Registry.
+2. Add the event struct to `internal/events/` in the **producing service**
+3. Add the type constant to `internal/events/types.go` in the producing service
+4. Publish using the new struct
+5. Notify consuming teams of the new event type and its payload schema
+6. Consuming services add a new `case` in their worker's `handleEvent` switch
    (and add a DTO if they need the payload)
 
 ### Q: How do I add a new stream?
 
 1. Add a row to the Stream Ownership Map
-2. Open a PR on `promy-event-bus` to add the stream name constant (e.g., `StreamMyDomain = "events:mydomain"`)
+2. Open a PR on `promy-event-bus` adding the constant in `streams/streams.go` and `registry/streams/<domain>/stream.yaml` (`stream`, `owner`, `description`).
 3. Implement producer and/or subscriber as described in this guide
 
 ### Q: Can two services share a stream (multiple producers)?
