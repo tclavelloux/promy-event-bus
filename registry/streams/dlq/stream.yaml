@@ -3,3 +3,4 @@ owner: platform
 description: "Dead-letter queue for Tier 1 events that exhausted all retries. Any service may publish here on failure. Consumed by ops tooling and automated replay workers."
 
 # registry workflow validation (throwaway)
+# second line so the head commit has no skip marker
