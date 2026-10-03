@@ -4,9 +4,10 @@ default_install_hook_types: [pre-commit, commit-msg, pre-push]
 
 repos:
   - repo: https://github.com/tclavelloux/promy-github-workflows
-    rev: hooks/v1.0.0
+    rev: hooks/v1.2.0
     hooks:
       - id: no-direct-commit-to-main
+      - id: workflow-sync
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

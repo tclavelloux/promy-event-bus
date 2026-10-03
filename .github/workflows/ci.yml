@@ -16,6 +16,8 @@ jobs:
   lint:
     if: github.event.pull_request.draft == false
     uses: tclavelloux/promy-github-workflows/.github/workflows/go-lint.yml@go-lint/v1
+    with:
+      workflow-sync: true
 
   vuln:
     if: github.event.pull_request.draft == false
