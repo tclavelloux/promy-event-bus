@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A standalone Go **library** (no binary, no HTTP server, no Yokai framework). It is imported by other `promy-*` microservices. It provides a Redis Streams–based event bus with at-least-once delivery, consumer groups, retry with exponential backoff, and typed event schemas.
+A standalone Go **library** (no binary, no HTTP server, no Yokai framework). It is imported by other `promy-*` microservices. It provides a Redis Streams–based event bus with at-least-once delivery, consumer groups, retry with exponential backoff, dead-letter routing, and an event schema registry.
 
 Module: `github.com/tclavelloux/promy-event-bus`
 
@@ -52,11 +52,10 @@ scripts/     # golangci-lint.sh, go-mod-tidy.sh (pre-commit hooks), validate-reg
 
 ### Event contract
 
-All events embed `eventbus.BaseEvent` (auto UUID, UTC timestamp, source, version `"1.0"`). Each event type lives in its subdomain package and provides:
-- A `New*` constructor
-- A `Validate()` method with business rules (beyond struct-tag validation)
-
-Validation is two-layered: struct tags (`go-playground/validator`) run in the publisher before every `Publish`, then `Validate()` for business rules.
+This library defines the `Event` interface and `BaseEvent` ([`eventbus/event.go`](eventbus/event.go)); concrete event structs and type-string constants live in each producing service.
+- Services embed `eventbus.BaseEvent` (use `NewBaseEvent` for UUID, UTC timestamp, source, version `"1.0"`), override `Data()` to return the JSON payload, and add a `Validate()` for business rules.
+- The publisher validates struct tags (`go-playground/validator`) before every `Publish`, then calls `Validate()`; see [`eventbus/validation.go`](eventbus/validation.go).
+- The contract of each event is declared in [`registry/streams/`](registry/streams/) and checked by `scripts/validate-registry.sh`.
 
 ### Subscriber dispatch
 
@@ -64,13 +63,14 @@ Subscribers receive a `rawEvent` wrapping Redis stream fields. They must type-sw
 
 ### Retry behaviour
 
-Max 3 attempts per message (backoff: 0 ms → 100 ms → 500 ms, capped at 10 s). After max retries the message is ACKed to prevent an infinite loop. No dead-letter queue yet.
+Max 3 attempts per message (backoff: 0 ms → 100 ms → 500 ms, capped at 10 s). After max retries the message is ACKed to prevent an infinite loop. If `SubscriptionConfig.DLQPublisher` is set, the subscriber first wraps the event in a `DLQEntry` ([`eventbus/dlq.go`](eventbus/dlq.go)) and publishes it to `streams.StreamDLQ`; if nil, the event is dropped. Inspect and replay with `make dlq-inspect` / `make dlq-replay` ([`cmd/dlq/`](cmd/dlq/)).
 
 ### Adding a new event type
 
-1. Add stream constant to `events/types.go` if needed.
-2. Create `events/<domain>/<event>.go` with struct embedding `eventbus.BaseEvent`, a `New*` constructor, and a `Validate()` method.
-3. Add the event type constant to `events/types.go`.
+1. New stream only: add the constant to [`streams/streams.go`](streams/streams.go) and `registry/streams/<domain>/stream.yaml`.
+2. Add `registry/streams/<domain>/events/<event-name>.yaml` (`name` = filename, `tier` 1 or 2, `fields`, `example`).
+3. Run `bash scripts/validate-registry.sh` (needs `yq`) before opening the PR.
+4. Do not add payload structs or type constants here; the producing service owns them (see HOWTO > Scope Split).
 
 ### Stream naming
 
