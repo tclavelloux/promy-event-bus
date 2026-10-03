@@ -263,7 +263,7 @@ examples/       Runnable publisher/subscriber demos
 ## Development
 
 ```bash
-make test              # all tests (requires Redis on localhost:6389 — `make up` starts it via docker-compose;
+make test              # all tests (Redis on localhost:6389/15 — `make up` starts it via docker-compose;
                         # override with REDIS_TEST_DSN if pointing at a different instance)
 make test-short        # unit tests only
 make test-integration  # start Redis via Docker, run tests, stop Redis
@@ -296,7 +296,18 @@ make setup             # pre-commit install --install-hooks (pre-commit, commit-
 | `commit-msg` | Conventional Commits |
 | `pre-push` | `make check-coverage`: full race suite, then thresholds from [`.testcoverage.yml`](.testcoverage.yml) (also read by the CI `coverage` job). Runs on every push, including pushes without `.go` files |
 
-The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted, and no hook mutates the working tree.
+The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted. The Go lint and tidy hooks only report: they fail without touching your files. The `trailing-whitespace` and `end-of-file-fixer` hooks rewrite files and fail the commit; re-stage the fixed files and commit again.
+
+### CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `pull_request` to `main` (opened, synchronize, ready_for_review, reopened). Draft PRs skip every job. No `push: main` trigger.
+
+- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`).
+- `test`: `go test -race` against a Redis service container (`REDIS_TEST_DSN=redis://localhost:6379/15`); uploads the coverage profile.
+- `coverage`: reusable `go-coverage/v2`; needs `test`; thresholds from [`.testcoverage.yml`](.testcoverage.yml).
+- `gitleaks`: scans the PR commit range. No `docker` job: this is a library.
+- [`pr-title.yml`](.github/workflows/pr-title.yml) is a separate workflow.
+- Squash-merge only: the PR title becomes the commit on `main`. It must be a Conventional Commits string; release-please parses it.
 
 ## Documentation
 

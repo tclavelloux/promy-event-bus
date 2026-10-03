@@ -12,7 +12,7 @@ Release Please is an automated release management tool from Google that:
 
 ### 1. Commit to Main Branch
 
-When you merge commits to `main` using Conventional Commits format:
+When you squash-merge a PR to `main`, the PR title becomes the commit. Use Conventional Commits format for the title:
 
 ```bash
 feat(publisher): add batch publishing support
@@ -51,11 +51,11 @@ Commits → Main → Release PR → Merge → GitHub Release → Repeat
 
 ### Manual Workflow (What We Built)
 - **Focus**: Local development and PR creation
-- **Agent commits** iteratively during development
-- **You review and approve** each commit
+- **Agent commits** iteratively on the branch (squashed away at merge)
+- **You review and approve** each PR
 - **You write** PR descriptions manually (or with agent help)
-- **Enforces**: Atomic commits, Conventional Commits format
-- **Output**: Clean commit history, reviewable PRs
+- **Enforces**: Atomic PRs (one purpose each), Conventional Commits PR titles
+- **Output**: Clean `main` history (one commit per PR), reviewable PRs
 
 ### Release Please (Automated Releases)
 - **Focus**: Release automation after merging to main
@@ -74,7 +74,7 @@ Commits → Main → Release PR → Merge → GitHub Release → Repeat
 └─────────────────────────────────────────────────────────────┘
                             ↓
     ┌───────────────────────────────────────────┐
-    │  Agent implements feature in atomic commits│
+    │  Agent implements feature on a branch      │
     │  - feat(publisher): add batch publishing   │
     │  - feat(redis): implement batch publishing │
     │  - test(publisher): add batch tests        │
@@ -91,7 +91,7 @@ Commits → Main → Release PR → Merge → GitHub Release → Repeat
                             ↓
     ┌───────────────────────────────────────────┐
     │  Code Review & Merge to Main              │
-    │  All commits preserved in history         │
+    │  Squash-merge: PR title = the one commit  │
     └───────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -127,8 +127,8 @@ Commits → Main → Release PR → Merge → GitHub Release → Repeat
 | **Who** | You + Cursor Agent | GitHub Actions (automated) |
 | **Input** | Code changes | Commit history |
 | **Output** | Commits + PRs | Releases + Tags + Changelog |
-| **Purpose** | Clean, reviewable commits | Automated version management |
-| **Manual Steps** | Approve commits, write PR descriptions | Review and merge Release PRs |
+| **Purpose** | Clean, reviewable PRs | Automated version management |
+| **Manual Steps** | Approve PRs, write PR titles and descriptions | Review and merge Release PRs |
 
 ## Configuration Files
 
@@ -148,7 +148,7 @@ Tracks current version. Release Please updates this file.
 
 ### Step 1: Merge Feature PR
 ```bash
-# Your PR with 4 commits merged to main:
+# 4 PRs squash-merged to main, one commit each (PR title):
 feat(publisher): add batch publishing interface
 feat(redis): implement batch publishing for Redis
 test(publisher): add batch publishing tests
@@ -220,13 +220,13 @@ This triggers a **major version bump** (0.2.0 → 1.0.0).
 
 ## Summary
 
-- **Your Git Workflow**: Ensures clean, atomic commits during development
+- **Your Git Workflow**: Ensures small, single-purpose PRs with Conventional Commits titles
 - **Release Please**: Automates releases after merging to main
 - **Together**: Complete automation from development to release
 - **You Control**: When to merge Release PRs and deploy
 
 The combination gives you:
-1. **Clean commit history** (from your workflow)
+1. **Clean `main` history** (from your workflow)
 2. **Automated releases** (from Release Please)
 3. **Professional changelogs** (from both)
 4. **Semantic versioning** (automatic)

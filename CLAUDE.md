@@ -34,22 +34,20 @@ make example-publisher
 make example-subscriber
 ```
 
-Integration tests require Redis on `localhost:6379/1`. Guard: `if testing.Short() { t.Skip(...) }`. Use `make test-integration` which handles Docker lifecycle, or `make up` before running tests manually.
+Integration tests require Redis on `localhost:6389/15` (`make up` maps host 6389 to the container's 6379; override with `REDIS_TEST_DSN`; CI uses `localhost:6379/15`). Tests skip when Redis is unreachable. Guard: `if testing.Short() { t.Skip(...) }`. Use `make test-integration` which handles Docker lifecycle, or `make up` before running tests manually.
 
 ## Architecture
 
 ```
 eventbus/    # Public interfaces and types (Event, EventPublisher, EventSubscriber,
              # Config, BaseEvent, sentinel errors, validation singleton)
-events/      # Typed event schemas — single source of truth for all domain events
-  promotion/ # PromotionCreatedEvent, PromotionUpdatedEvent
-  user/      # UserRegisteredEvent, UserPreferencesUpdatedEvent, UserLocationUpdatedEvent
-  product/   # ProductIdentifiedEvent
-  types.go   # EventXxx and StreamXxx constants
+streams/     # Stream name constants (StreamUsers, StreamPromotions, ..., StreamDLQ)
+registry/    # Event schema registry (registry/streams/<stream>/), checked by scripts/validate-registry.sh
 redis/       # Concrete implementation of EventPublisher and EventSubscriber
 testutil/    # MockPublisher and MockSubscriber (testify/mock) for downstream services
-pkg/ptr/     # Scalar pointer helpers used in event constructors
+cmd/dlq/     # DLQ inspection/replay CLI
 examples/    # Runnable publisher/subscriber demos; excluded from lint
+scripts/     # golangci-lint.sh, go-mod-tidy.sh (pre-commit hooks), validate-registry.sh
 ```
 
 ### Event contract
