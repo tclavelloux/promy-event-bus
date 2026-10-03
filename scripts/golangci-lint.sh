@@ -1,7 +1,7 @@
 #!/bin/sh
 # Wrapper around golangci-lint that pins the fleet-wide version from
 # .golangci-version, installing it on demand — the same on-demand-bootstrap
-# shape as .githooks/pre-push's go-test-coverage install. Used by
+# shape as the Makefile's install-go-test-coverage target. Used by
 # `make lint`, `make git-check`, and the golangci-lint* pre-commit hooks so
 # all three invoke byte-identical tooling.
 set -e
