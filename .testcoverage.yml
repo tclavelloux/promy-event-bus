@@ -1,7 +1,9 @@
-# Single source of truth for coverage thresholds and exclusions, read by both
-# the pre-push hook (check-coverage in .pre-commit-config.yaml) and CI
-# (.github/workflows/ci.yml, which calls
-# tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml).
+# Single source of truth for coverage thresholds and exclusions. Read by:
+# - the pre-push `check-coverage` hook (.pre-commit-config.yaml), via
+#   `make check-coverage`, and
+# - the CI `coverage` job (.github/workflows/ci.yml), which calls the reusable
+#   tclavelloux/promy-github-workflows/.github/workflows/go-coverage.yml and
+#   fails if this file is missing.
 #
 # Ratchet policy: floor is set per issue #27's contract (85%), with headroom
 # below the ~97% actually achieved to leave room for future feature commits.

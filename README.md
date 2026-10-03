@@ -279,18 +279,22 @@ make dlq-replay        # replay DLQ entries (see flags above)
 make help              # list all targets
 
 # Setup
-make setup             # Install pre-commit hooks
+make setup             # pre-commit install --install-hooks (pre-commit, commit-msg, pre-push)
 ```
 
 ### Local quality gate
 
-`make setup` is not optional. Without it no git hooks are installed, so nothing lints, formats or scans for secrets until CI does. It needs `pre-commit` on the machine (`brew install pre-commit`).
+`make setup` is not optional. Without it no git hooks are installed, so nothing lints, formats or scans for secrets until CI does.
+
+- Install `pre-commit` first (`brew install pre-commit`); `make setup` fails without it.
+- `make setup` installs all three hook types (`default_install_hook_types` in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)).
+- A hand-written `.git/hooks/pre-commit` is moved to `pre-commit.legacy` and keeps running. Delete it after setup.
 
 | Stage | Checks |
 |---|---|
-| `pre-commit` | golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
+| `pre-commit` | `no-direct-commit-to-main` (shared hook, blocks commits on `main`), golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
 | `commit-msg` | Conventional Commits |
-| `pre-push` | `make check-coverage` against [`.testcoverage.yml`](.testcoverage.yml) |
+| `pre-push` | `make check-coverage`: full race suite, then thresholds from [`.testcoverage.yml`](.testcoverage.yml) (also read by the CI `coverage` job). Runs on every push, including pushes without `.go` files |
 
 The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted, and no hook mutates the working tree.
 
