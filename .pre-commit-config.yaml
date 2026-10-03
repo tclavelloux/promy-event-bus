@@ -8,6 +8,7 @@ repos:
     hooks:
       - id: no-direct-commit-to-main
       - id: workflow-sync
+      - id: go-vuln
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
