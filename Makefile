@@ -1,7 +1,6 @@
 .PHONY: setup
 setup:
-	pre-commit install
-	pre-commit install --hook-type commit-msg
+	pre-commit install --install-hooks
 
 .PHONY: test
 test:
