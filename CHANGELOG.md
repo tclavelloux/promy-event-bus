@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.4.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.1...v0.4.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **registry:** set the events:subscriptions owner to promy-subscription ([#51](https://github.com/tclavelloux/promy-event-bus/issues/51)) ([af9ac49](https://github.com/tclavelloux/promy-event-bus/commit/af9ac49b3f2fa3f1696159554e06bc5803d2a834))
+
+
+### Build System
+
+* **deps:** bump github.com/stretchr/testify from 1.8.4 to 1.12.1 ([#41](https://github.com/tclavelloux/promy-event-bus/issues/41)) ([e51c79d](https://github.com/tclavelloux/promy-event-bus/commit/e51c79dc3501973f9d6d61cf4a08ce53773baef1))
+* **deps:** bump gitleaks/gitleaks-action from 2.3.9 to 3.0.0 ([#38](https://github.com/tclavelloux/promy-event-bus/issues/38)) ([6b7c323](https://github.com/tclavelloux/promy-event-bus/commit/6b7c32371a37d2c09342cbf1155e19f10c4bb72e))
+* **deps:** bump googleapis/release-please-action from 4.4.1 to 5.0.0 ([#44](https://github.com/tclavelloux/promy-event-bus/issues/44)) ([dcb6774](https://github.com/tclavelloux/promy-event-bus/commit/dcb6774394bc4ad0f7e35934216cdb3445a8acba))
+* **deps:** bump the gomod group with 6 updates ([#56](https://github.com/tclavelloux/promy-event-bus/issues/56)) ([74c02ab](https://github.com/tclavelloux/promy-event-bus/commit/74c02abe71138db60f19bc81312a86e1541a51ef))
+* pin go-test-coverage to the version CI runs ([#49](https://github.com/tclavelloux/promy-event-bus/issues/49)) ([ac7645c](https://github.com/tclavelloux/promy-event-bus/commit/ac7645c371ed38a883415948d0b849f466654029))
+
+
+### Continuous Integration
+
+* add the workflow-sync fleet check and harden registry.yaml ([#53](https://github.com/tclavelloux/promy-event-bus/issues/53)) ([173ad20](https://github.com/tclavelloux/promy-event-bus/commit/173ad200d5013048af8f2f71ab254073ce850b7b))
+* automate dependency bumps and vuln fixes ([#55](https://github.com/tclavelloux/promy-event-bus/issues/55)) ([2cf8c7b](https://github.com/tclavelloux/promy-event-bus/commit/2cf8c7bbd5b79e0a6f055d5cc4ab5e31a2359f1c))
+* pin actions to SHAs, add Dependabot and the PR-title check ([#37](https://github.com/tclavelloux/promy-event-bus/issues/37)) ([0462a6b](https://github.com/tclavelloux/promy-event-bus/commit/0462a6b7da3f420d0213d98e3b26a356b4069ae5))
+* pin release-please-action by SHA ([#43](https://github.com/tclavelloux/promy-event-bus/issues/43)) ([44f5364](https://github.com/tclavelloux/promy-event-bus/commit/44f5364b22a2303617bcb3788f8228b164ffae09))
+* scope permissions, add concurrency and job timeouts ([#36](https://github.com/tclavelloux/promy-event-bus/issues/36)) ([bf4281d](https://github.com/tclavelloux/promy-event-bus/commit/bf4281de391c6f48121a86f2168e12216c834d4a))
+
+
+### Documentation
+
+* align hook documentation with the fleet ([#47](https://github.com/tclavelloux/promy-event-bus/issues/47)) ([65d2948](https://github.com/tclavelloux/promy-event-bus/commit/65d2948cabf2e4404cf02904f5afd1ee030e4b38))
+* **claude:** correct the event contract, retry/DLQ and new-event steps ([#52](https://github.com/tclavelloux/promy-event-bus/issues/52)) ([2643de6](https://github.com/tclavelloux/promy-event-bus/commit/2643de6ca86317a9220763c025aeeaa41156f894))
+* correct the Redis DSN and layout in CLAUDE.md, add CI notes, remove the release guide ([#48](https://github.com/tclavelloux/promy-event-bus/issues/48)) ([67d017b](https://github.com/tclavelloux/promy-event-bus/commit/67d017b27382e5ca53e21ecc0d24607c21047a76))
+* restructure the README to the canonical layout and refresh it ([#50](https://github.com/tclavelloux/promy-event-bus/issues/50)) ([191e5a9](https://github.com/tclavelloux/promy-event-bus/commit/191e5a9252ecab29ee05a7f8ef0608b94f28b555))
+
+
+### Miscellaneous
+
+* align pre-commit hook installation with the fleet ([#46](https://github.com/tclavelloux/promy-event-bus/issues/46)) ([1cfb690](https://github.com/tclavelloux/promy-event-bus/commit/1cfb690b3154a1736e107b1f3c94f9f26eb47480))
+* **changelog:** remove entries duplicated by merge commits ([#34](https://github.com/tclavelloux/promy-event-bus/issues/34)) ([7cfe73e](https://github.com/tclavelloux/promy-event-bus/commit/7cfe73ecbe92df27eaf85e257690ea65c694bb8d))
+
 ## [0.4.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.0...v0.4.1) (2026-09-12)
 
 
