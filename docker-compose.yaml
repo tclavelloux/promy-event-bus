@@ -19,7 +19,10 @@ services:
       timeout: 3s
       retries: 5
 
-  redisinsight: #Redis's official GUI
+  # Redis's official GUI at http://localhost:5540.
+  # "Add database" form: Host `redis`, Port `6379` (container network, not the
+  # host-mapped 6389). `127.0.0.1:6389` fails: it resolves inside this container.
+  redisinsight:
     container_name: promy-redisinsight
     image: redis/redisinsight:latest
     networks:
