@@ -6,7 +6,7 @@ default_stages: [pre-commit]
 
 repos:
   - repo: https://github.com/tclavelloux/promy-github-workflows
-    rev: hooks/v1.6.0
+    rev: hooks/v1.7.0
     hooks:
       - id: no-direct-commit-to-main
       - id: workflow-sync
