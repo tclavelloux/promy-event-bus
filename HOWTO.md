@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.7 - `events:identifications` dropped (October 2026)
+> **Version**: 2.8 - subscriber `OnError` callback (October 2026)
 >
 > **Changelog:**
+> - v2.8: `SubscriptionConfig.OnError` reports errors the subscriber swallows (DLQ publish, retry requeue, ACK, metadata); delivery unchanged
 > - v2.7: `events:identifications` dropped; `promy-identifier` owns no stream until it publishes an event
 > - v2.6: `product.identified` moved from `events:identifications` to `events:products` (owner `promy-product`, Tier 2)
 > - v2.5: DLQ publish contract aligned with the subscriber code (#58); CI/automation and pre-commit sections refreshed
@@ -258,8 +259,11 @@ func main() {
         BatchSize:      streamCfg.BatchSize,
         BlockDuration:  streamCfg.BlockDuration,
         MaxConcurrency: streamCfg.MaxConcurrency,
-        DLQPublisher:   dlqPublisher, // nil = silent drop after max retries
+        DLQPublisher:   dlqPublisher, // nil = drop after max retries
         DLQService:     "notification-service",
+        OnError: func(ctx context.Context, e eventbus.SubscriberError) {
+            log.Printf("eventbus: %v", e)
+        },
     })
     if err != nil && err != context.Canceled {
         log.Fatal(err)
@@ -483,6 +487,25 @@ subscriber.Subscribe(ctx, eventbus.SubscriptionConfig{
 4. Original message is ACKed
 
 The handler does not need to handle DLQ logic itself — just return errors for retriable failures.
+
+### Observing swallowed errors
+
+The subscriber handles these failures itself and returns no error for them. Set `SubscriptionConfig.OnError` to see them:
+
+| Stage | What failed | What happened to the message |
+|---|---|---|
+| `metadata_unmarshal` | `metadata` field missing, not a string, or invalid JSON | ACKed and dropped |
+| `metadata_marshal` | Re-encoding metadata for a retry | ACKed and dropped |
+| `retry_requeue` | `XADD` of the retry copy | Original ACKed; retry lost |
+| `dlq_publish` | `DLQPublisher.Publish` after retry exhaustion | ACKed; event lost |
+| `ack` | `XACK` | Stays pending; never redelivered (no reclaim loop) |
+
+- `OnError` never changes delivery.
+- `OnError` runs synchronously in the processing goroutine, concurrently when `MaxConcurrency > 1`: keep it cheap (log, increment a metric).
+- A panic inside `OnError` is recovered and discarded.
+- Handler errors are not reported: the handler already has them.
+- `SubscriberError` carries `Stage`, `Stream`, `ConsumerGroup`, `ConsumerID`, `MessageID`, `EventID`, `EventType`, `Attempt`, `Err`. `EventID`, `EventType` and `Attempt` are zero when metadata could not be decoded.
+- No-loss delivery (no ACK on failure plus a pending-reclaim loop) is not implemented: [#71](https://github.com/tclavelloux/promy-event-bus/issues/71).
 
 ### Operator tooling
 
@@ -833,6 +856,11 @@ func (w *UsersWorker) Run(ctx context.Context) error {
         // Tier 1 stream: route to DLQ after exhausting retries
         DLQPublisher: w.dlqPublisher,
         DLQService:   "promy-crm",
+        OnError: func(ctx context.Context, e eventbus.SubscriberError) {
+            log.CtxLogger(ctx).Error().Err(e.Err).Str("stage", string(e.Stage)).
+                Str("stream", e.Stream).Str("message_id", e.MessageID).
+                Str("event_id", e.EventID).Msg("event bus swallowed error")
+        },
     })
 }
 
@@ -1319,3 +1347,5 @@ or incident response.
 Monitor the `events:dlq` stream length (`XLEN events:dlq`) and alert when it grows.
 Also monitor error logs for `"failed to publish event"` (Tier 1 synchronous path
 returns 500, which is already surfaced in HTTP metrics).
+Set `OnError` on the subscription: stage `dlq_publish` or `retry_requeue` means an
+event was lost (see [Observing swallowed errors](#observing-swallowed-errors)).

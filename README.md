@@ -63,7 +63,7 @@ See [HOWTO.md](HOWTO.md) for Quick Start, configuration, Yokai integration, and 
 | Symbol | Package | Contract |
 |---|---|---|
 | `EventPublisher` | [`eventbus`](eventbus/publisher.go) | `Publish`, `PublishBatch` (all or none), `Close`, `Health` |
-| `EventSubscriber` | [`eventbus`](eventbus/subscriber.go) | `Subscribe` (blocks until ctx cancelled), `Close`, `Health`; `SubscriptionConfig` carries stream, group, consumer ID, handler, batch/block/concurrency, `DLQPublisher`, `DLQService` |
+| `EventSubscriber` | [`eventbus`](eventbus/subscriber.go) | `Subscribe` (blocks until ctx cancelled), `Close`, `Health`; `SubscriptionConfig` carries stream, group, consumer ID, handler, batch/block/concurrency, `DLQPublisher`, `DLQService`, `OnError` |
 | `Event` | [`eventbus`](eventbus/event.go) | `EventType()`, `EventID()`, `EventTime()`, `Data() string`, `Validate()`; `BaseEvent` provides the common fields |
 | `Config` | [`eventbus`](eventbus/config.go) | `Redis` (`RedisConfig`) and `Consumer` (`ConsumerConfig`: group, consumer ID, `Defaults`, per-stream `Streams` overrides); `StreamConfig(stream)` resolves effective values |
 | `redis.NewPublisher` / `redis.NewSubscriber` | [`redis`](redis/) | Redis implementations of the interfaces |
@@ -93,6 +93,7 @@ Stream constants live in [`streams/streams.go`](streams/streams.go); owners are 
 
 - Delays beyond attempt 3 cap at 10 s (`calculateBackoff` in [`redis/subscriber.go`](redis/subscriber.go)); the subscriber stops at 3 attempts.
 - After 3 attempts with `DLQPublisher` set, the event is wrapped in a `DLQEntry` and published to `events:dlq`. Otherwise it is dropped and ACKed.
+- `SubscriptionConfig.OnError` reports DLQ publish, requeue, ACK and metadata errors the subscriber otherwise swallows; see [HOWTO](HOWTO.md#observing-swallowed-errors).
 
 DLQ entry format:
 
