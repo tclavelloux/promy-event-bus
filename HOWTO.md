@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.4 - Quick Start, library development guide, registry PR steps (October 2026)
+> **Version**: 2.5 - DLQ contract aligned with the subscriber, CI/automation and hooks refresh (October 2026)
 >
 > **Changelog:**
+> - v2.5: DLQ publish contract aligned with the subscriber code (#58); CI/automation and pre-commit sections refreshed
 > - v2.4: Quick Start (plain Go) and "Developing promy-event-bus" moved here from the README; DLQ replay flags and semantics; per-stream override accessor; "add event" and "add stream" FAQ steps now go through the registry
 > - v2.3: DLQ routing is now automatic via `DLQPublisher` on `SubscriptionConfig`; added DLQ section; updated worker example with DLQ fields; removed stale `Data()` prerequisite warning; fixed `EventTime()` method name in examples
 > - v2.2: Tier 1 publish pattern documented as "publish-before-commit" (publish inside open DB transaction, commit only after Redis confirms); replaces naive synchronous publish that had a partial-failure window; transactional outbox deferred to Phase 7
@@ -125,12 +126,12 @@ is each consuming service's own concern - it is not tracked here.
 | `events:promotions` | `promy-product` | Tier 2 |
 | `events:products` | `promy-product` | Tier 2 |
 | `events:identifications` | `promy-identifier` | Tier 2 |
-| `events:dlq` | Any service (failure path only) | n/a |
+| `events:dlq` | platform (subscriber failure path only) | n/a |
 
 **Rules:**
 - A service publishes **only to its own stream**. Never to another service's stream.
 - **One stream, one owner** - two services must never publish to the same stream. If two services produce events in the same domain, each gets its own stream (see FAQ: "Can two services share a stream?").
-- The `events:dlq` stream is the only exception: any service may publish to it when a Tier 1 event handler exhausts its retries (see Event Criticality Tiers).
+- `events:dlq` is the only exception, and it is a failure sink only. The subscriber publishes to it when retries are exhausted and `SubscriptionConfig.DLQPublisher` is set (see [Dead-Letter Queue](#dead-letter-queue-dlq)). Handler code never writes to it.
 - When you add a new stream, add it to this table and open a PR on `promy-event-bus` to register its name constant.
 
 ---
@@ -377,7 +378,7 @@ subscriber's failure handling.
 | **Definition** | Event loss = broken user contract or data inconsistency | Event loss = degraded experience, self-healing |
 | **Acceptable loss?** | No | Yes |
 | **Publish pattern** | Synchronous (blocks until Redis confirms) | Fire-and-forget goroutine |
-| **Subscriber on failure** | Route to `events:dlq` after retries exhausted | Log warning, drop |
+| **Subscriber on failure** | Set `DLQPublisher`: routed to `events:dlq` after retries exhausted | Leave `DLQPublisher` nil: dropped after retries |
 | **Examples** | `subscription.started`, `user.registered` (onboarding) | Push notifications, analytics, search indexing |
 
 ### Event tier reference
@@ -457,8 +458,9 @@ func (s *DefaultService) StartSubscription(ctx context.Context, sub *Subscriptio
 
 ## Dead-Letter Queue (DLQ)
 
-DLQ routing is built into the subscriber. When a Tier 1 event exhausts all 3 retry attempts,
-the subscriber automatically wraps it in a `DLQEntry` and publishes it to `events:dlq`.
+DLQ routing is built into the subscriber. When an event exhausts all 3 retry attempts and `SubscriptionConfig.DLQPublisher` is set,
+the subscriber wraps it in a `DLQEntry` ([`eventbus/dlq.go`](eventbus/dlq.go)) and publishes it to `events:dlq`. Without `DLQPublisher` the event is dropped.
+The handler only returns its error.
 
 ### Enabling DLQ routing
 
@@ -944,23 +946,20 @@ is negligible at current scale.
 
 | Event tier | Handler returns error | Outcome |
 |---|---|---|
-| Tier 1 | `error` | Subscriber retries (3x), then routes to `events:dlq` |
-| Tier 2 | `error` | Subscriber retries (3x), then drops (logs warning) |
+| Tier 1 | `error` | Subscriber retries (3x), then routes to `events:dlq` when `DLQPublisher` is set |
+| Tier 2 | `error` | Subscriber retries (3x), then drops when `DLQPublisher` is nil |
 | Any tier | `nil` for unknown type | ACKed immediately, no retry |
 
-For Tier 1 events, DLQ routing is **automatic** when `DLQPublisher` is set on `SubscriptionConfig`.
-After 3 failed attempts, the subscriber wraps the event in a `DLQEntry` (via `eventbus.NewDLQEntry()`)
-and publishes it to `streams.StreamDLQ`. The handler does **not** need to manage DLQ logic itself — just return an error to trigger retries:
+DLQ routing is done by the subscriber, never the handler. Mechanics, setup, and operator tooling: [Dead-Letter Queue](#dead-letter-queue-dlq).
+Return an error to trigger retries:
 
 ```go
 func (w *SubscriptionsWorker) handleEvent(ctx context.Context, event eventbus.Event) error {
-    // Return error = subscriber retries (3x), then routes to DLQ automatically.
+    // Return error = subscriber retries (3x), then handles the DLQ.
     // Return nil = ACK immediately.
     return w.processEvent(ctx, event)
 }
 ```
-
-Operators inspect and replay DLQ entries with `make dlq-inspect` and `make dlq-replay`.
 
 ### Topology diagram
 
@@ -1137,6 +1136,7 @@ make check-coverage    # race suite + thresholds from .testcoverage.yml (same ga
 make lint              # golangci-lint
 make fmt               # go fmt
 make vet               # go vet
+make vuln              # govulncheck via the shared `go-vuln` hook (manual stage); same check as the CI `vuln` job
 make tidy              # go mod tidy
 make up                # start Redis + RedisInsight GUI at :5540 (docker-compose)
 make down              # stop Redis
@@ -1160,9 +1160,9 @@ make setup             # pre-commit install --install-hooks (pre-commit, commit-
 
 | Stage | Checks |
 |---|---|
-| `pre-commit` | `no-direct-commit-to-main` (shared hook, blocks commits on `main`), golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
+| `pre-commit` | `no-direct-commit-to-main` (shared hook, blocks commits on `main`), `workflow-sync` (shared hook, fleet workflow drift check), golangci-lint (pinned), `golangci-lint fmt --diff`, config verify, `go mod tidy` check, gitleaks, whitespace/YAML hygiene |
 | `commit-msg` | Conventional Commits |
-| `pre-push` | `make check-coverage`: full race suite, then thresholds from [`.testcoverage.yml`](.testcoverage.yml) (also read by the CI `coverage` job). Runs on every push, including pushes without `.go` files |
+| `pre-push` | `make check-coverage`: full race suite, then thresholds from [`.testcoverage.yml`](.testcoverage.yml) (also read by the CI `coverage` job). Runs on every push, including pushes without `.go` files. Also `go-vuln` (shared hook) |
 
 The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`scripts/go-mod-tidy.sh`](scripts/go-mod-tidy.sh), which install the version in `.golangci-version` and exec it directly — the same version [`go-lint.yml`](https://github.com/tclavelloux/promy-github-workflows) runs in CI. A locally installed `golangci-lint` is neither needed nor consulted. The Go lint and tidy hooks only report: they fail without touching your files. The `trailing-whitespace` and `end-of-file-fixer` hooks rewrite files and fail the commit; re-stage the fixed files and commit again.
 
@@ -1170,10 +1170,15 @@ The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`s
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `pull_request` to `main` (opened, synchronize, ready_for_review, reopened). Draft PRs skip every job. No `push: main` trigger.
 
-- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`).
+- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`). `lint` runs with `workflow-sync: true`: it fails when `.github/workflows/` drifts from the fleet copies.
 - `test`: `go test -race` against a Redis service container (`REDIS_TEST_DSN=redis://localhost:6379/15`); uploads the coverage profile.
 - `coverage`: reusable `go-coverage/v2`; needs `test`; thresholds from [`.testcoverage.yml`](.testcoverage.yml).
 - `gitleaks`: scans the PR commit range. No `docker` job: this is a library.
+- `automerge`: runs only for PRs from `dependabot[bot]` or `promy-fleet-bot[bot]`; needs every other job green.
+- [`registry.yaml`](.github/workflows/registry.yaml): on PRs touching `registry/**`, runs `scripts/validate-registry.sh`.
+- [`release-please.yml`](.github/workflows/release-please.yml): reusable release-please workflow on push to `main`.
+- [`vuln-fix.yml`](.github/workflows/vuln-fix.yml): weekly and on `workflow_dispatch`; opens a fix PR for failing `govulncheck`.
+- [`dependabot.yml`](.github/dependabot.yml): weekly gomod and github-actions updates; minor and patch grouped, majors stay individual PRs.
 - [`pr-title.yml`](.github/workflows/pr-title.yml) is a separate workflow.
 - Squash-merge only: the PR title becomes the commit on `main`. It must be a Conventional Commits string; release-please parses it.
 
@@ -1268,9 +1273,12 @@ for streams where event ordering matters (see `events:users`).
 
 ### Q: What happens if my handler returns an error?
 
-The subscriber retries 3 times with exponential backoff. After 3 failures:
-- **Tier 1 event**: your handler should route to `events:dlq` and return `nil`
-- **Tier 2 event**: the subscriber drops the message and logs a warning
+The subscriber retries up to 3 attempts with exponential backoff, then ACKs the message.
+- `DLQPublisher` set: the subscriber first publishes a `DLQEntry` to `events:dlq`.
+- `DLQPublisher` nil: the subscriber drops the event.
+
+Return the error from the handler. Do not publish to `events:dlq` yourself and do not return `nil` to swallow the failure: `nil` ACKs the message with no retry and no DLQ entry.
+See [Dead-Letter Queue](#dead-letter-queue-dlq).
 
 Design your handlers to be **idempotent** - they may be called more than once
 for the same event (Redis delivers at-least-once).

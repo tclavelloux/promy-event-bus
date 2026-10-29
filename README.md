@@ -82,7 +82,7 @@ Stream constants live in [`streams/streams.go`](streams/streams.go); owners are 
 | `events:dlq` | platform (multi-writer) | Dead-letter queue |
 
 - One stream, one owner: only the owner publishes business events to it.
-- `events:dlq` is a failure sink. Any service may write to it on retry exhaustion; never publish business events to it.
+- `events:dlq` is a failure sink. The subscriber writes to it when `SubscriptionConfig.DLQPublisher` is set and retries are exhausted; never publish business events to it.
 
 ### Retry and Dead-Letter Queue
 
@@ -174,4 +174,4 @@ Full split: [HOWTO.md > Scope Split](HOWTO.md#scope-split).
 - [promy-identifier](https://github.com/tclavelloux/promy-identifier) — AI product identification service
 - [promy-crm](https://github.com/tclavelloux/promy-crm) — CRM service
 
-<!-- readme-updated-at: ac7645c -->
+<!-- readme-updated-at: 0f423bc -->
