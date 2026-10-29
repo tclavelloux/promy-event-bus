@@ -137,21 +137,103 @@ func (s *Subscriber) Subscribe(ctx context.Context, subConfig eventbus.Subscript
 	}
 }
 
+// errMissingMetadata is reported when the metadata field is absent or not a string.
+var errMissingMetadata = errors.New("metadata field missing or not a string")
+
+// reportError forwards e to config.OnError, filling the subscription identifiers.
+func (s *Subscriber) reportError(ctx context.Context, config eventbus.SubscriptionConfig, e eventbus.SubscriberError) {
+	if config.OnError == nil {
+		return
+	}
+
+	e.Stream = config.Stream
+	e.ConsumerGroup = config.ConsumerGroup
+	e.ConsumerID = config.ConsumerID
+
+	// A faulty observer must not kill the processing goroutine or skip the ACK.
+	defer func() { _ = recover() }()
+
+	config.OnError(ctx, e)
+}
+
+// ack acknowledges msg and reports a failure to do so.
+func (s *Subscriber) ack(
+	ctx context.Context, config eventbus.SubscriptionConfig, msg redis.XMessage,
+	eventID, eventType string, attempt int,
+) {
+	if err := s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID).Err(); err != nil {
+		s.reportError(ctx, config, eventbus.SubscriberError{
+			Stage:     eventbus.StageAck,
+			MessageID: msg.ID,
+			EventID:   eventID,
+			EventType: eventType,
+			Attempt:   attempt,
+			Err:       err,
+		})
+	}
+}
+
+// requeue re-adds msg to the stream with an incremented attempt counter.
+func (s *Subscriber) requeue(
+	ctx context.Context, config eventbus.SubscriptionConfig, msg redis.XMessage,
+	metadata map[string]any, attempt int, eventID, eventType string,
+) {
+	metadata["attempt"] = attempt + 1
+
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		s.reportError(ctx, config, eventbus.SubscriberError{
+			Stage:     eventbus.StageMetadataMarshal,
+			MessageID: msg.ID,
+			EventID:   eventID,
+			EventType: eventType,
+			Attempt:   attempt,
+			Err:       err,
+		})
+
+		return
+	}
+
+	err = s.client.XAdd(ctx, &redis.XAddArgs{
+		Stream: config.Stream,
+		Values: map[string]any{
+			fieldMetadata: string(metadataJSON),
+			fieldPayload:  msg.Values[fieldPayload],
+		},
+	}).Err()
+	if err != nil {
+		s.reportError(ctx, config, eventbus.SubscriberError{
+			Stage:     eventbus.StageRetryRequeue,
+			MessageID: msg.ID,
+			EventID:   eventID,
+			EventType: eventType,
+			Attempt:   attempt,
+			Err:       err,
+		})
+	}
+}
+
 // processMessage processes a single message with retry logic.
 func (s *Subscriber) processMessage(ctx context.Context, config eventbus.SubscriptionConfig, msg redis.XMessage) {
 	// Parse metadata
 	var metadata map[string]any
 	metadataStr, ok := msg.Values["metadata"].(string)
 	if !ok {
-		// Invalid message format, acknowledge to prevent reprocessing
-		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+		// Invalid message format, report and acknowledge to prevent reprocessing
+		s.reportError(ctx, config, eventbus.SubscriberError{
+			Stage: eventbus.StageMetadataUnmarshal, MessageID: msg.ID, Err: errMissingMetadata,
+		})
+		s.ack(ctx, config, msg, "", "", 0)
 
 		return
 	}
 
 	if err := json.Unmarshal([]byte(metadataStr), &metadata); err != nil {
-		// Invalid metadata, acknowledge to prevent reprocessing
-		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+		// Invalid metadata, report and acknowledge to prevent reprocessing
+		s.reportError(ctx, config, eventbus.SubscriberError{
+			Stage: eventbus.StageMetadataUnmarshal, MessageID: msg.ID, Err: err,
+		})
+		s.ack(ctx, config, msg, "", "", 0)
 
 		return
 	}
@@ -186,38 +268,25 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	if handlerErr := config.Handler(processCtx, event); handlerErr != nil {
 		// Handle retry logic
 		if attempt < 3 { // Max 3 attempts
-			// Calculate backoff
-			backoff := calculateBackoff(attempt)
-			time.Sleep(backoff)
-
-			// Increment attempt and re-publish for retry
-			metadata["attempt"] = attempt + 1
-			metadataJSON, err := json.Marshal(metadata)
-			if err != nil {
-				// Log error but continue (acknowledge message)
-				return
-			}
-
-			// Re-add to stream for retry
-			s.client.XAdd(ctx, &redis.XAddArgs{
-				Stream: config.Stream,
-				Values: map[string]any{
-					fieldMetadata: string(metadataJSON),
-					fieldPayload:  msg.Values[fieldPayload],
-				},
-			})
+			time.Sleep(calculateBackoff(attempt))
+			s.requeue(ctx, config, msg, metadata, attempt, id, eventType)
 		} else if config.DLQPublisher != nil {
 			dlqEntry := eventbus.NewDLQEntry(config.Stream, event, handlerErr, config.DLQService, attempt)
-			_ = config.DLQPublisher.Publish(ctx, streams.StreamDLQ, dlqEntry)
+			if err := config.DLQPublisher.Publish(ctx, streams.StreamDLQ, dlqEntry); err != nil {
+				s.reportError(ctx, config, eventbus.SubscriberError{
+					Stage:     eventbus.StageDLQPublish,
+					MessageID: msg.ID,
+					EventID:   id,
+					EventType: eventType,
+					Attempt:   attempt,
+					Err:       err,
+				})
+			}
 		}
-
-		s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
-
-		return
 	}
 
-	// Acknowledge successful processing
-	s.client.XAck(ctx, config.Stream, config.ConsumerGroup, msg.ID)
+	// Acknowledge in every outcome (success, retry requeued or lost, DLQ routed or dropped).
+	s.ack(ctx, config, msg, id, eventType, attempt)
 }
 
 // calculateBackoff calculates exponential backoff.
