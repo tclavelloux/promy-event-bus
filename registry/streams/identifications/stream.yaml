@@ -1,3 +1,0 @@
-stream: events:identifications
-owner: promy-identifier
-description: "Reserved for promy-identifier-owned events. No events registered yet; product.identified lives on events:products."
