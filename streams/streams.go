@@ -4,11 +4,10 @@ package streams
 // These are the only domain-aware constants that promy-event-bus owns.
 // Event type constants and payload structs belong in each producing service.
 const (
-	StreamUsers           = "events:users"
-	StreamSubscriptions   = "events:subscriptions"
-	StreamPromotions      = "events:promotions"
-	StreamProducts        = "events:products"
-	StreamIdentifications = "events:identifications"
+	StreamUsers         = "events:users"
+	StreamSubscriptions = "events:subscriptions"
+	StreamPromotions    = "events:promotions"
+	StreamProducts      = "events:products"
 )
 
 // StreamDLQ is the dead-letter queue stream.

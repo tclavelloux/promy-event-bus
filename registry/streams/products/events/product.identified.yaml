@@ -1,6 +1,6 @@
 name: product.identified
-tier: 1
-description: "Fired when the AI pipeline matches a promotion to a canonical product. Triggers catalogue enrichment."
+tier: 2
+description: "Fired by promy-product, in the transaction that links a promotion to a canonical product. Triggers catalogue enrichment."
 fields:
   promotion_id:
     type: string

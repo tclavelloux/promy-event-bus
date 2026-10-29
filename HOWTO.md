@@ -1,8 +1,10 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.5 - DLQ contract aligned with the subscriber, CI/automation and hooks refresh (October 2026)
+> **Version**: 2.7 - `events:identifications` dropped (October 2026)
 >
 > **Changelog:**
+> - v2.7: `events:identifications` dropped; `promy-identifier` owns no stream until it publishes an event
+> - v2.6: `product.identified` moved from `events:identifications` to `events:products` (owner `promy-product`, Tier 2)
 > - v2.5: DLQ publish contract aligned with the subscriber code (#58); CI/automation and pre-commit sections refreshed
 > - v2.4: Quick Start (plain Go) and "Developing promy-event-bus" moved here from the README; DLQ replay flags and semantics; per-stream override accessor; "add event" and "add stream" FAQ steps now go through the registry
 > - v2.3: DLQ routing is now automatic via `DLQPublisher` on `SubscriptionConfig`; added DLQ section; updated worker example with DLQ fields; removed stale `Data()` prerequisite warning; fixed `EventTime()` method name in examples
@@ -84,12 +86,6 @@ promy-subscription/
       types.go
       subscription_started.go
       subscription_cancelled.go
-
-promy-identifier/
-  internal/
-    events/
-      types.go
-      product_identified.go  <-- output of ML/LLM identification pipeline
 ```
 
 ### What each consumer owns
@@ -124,8 +120,7 @@ is each consuming service's own concern - it is not tracked here.
 | `events:users` | `promy-user` | Tier 1 + Tier 2 (mixed - see Event Criticality Tiers) |
 | `events:subscriptions` | `promy-subscription` | Tier 1 |
 | `events:promotions` | `promy-product` | Tier 2 |
-| `events:products` | `promy-product` | Tier 2 |
-| `events:identifications` | `promy-identifier` | Tier 2 |
+| `events:products` | `promy-product` | Tier 2 (`product.created`, `product.identified`) |
 | `events:dlq` | platform (subscriber failure path only) | n/a |
 
 **Rules:**
@@ -393,7 +388,7 @@ subscriber's failure handling.
 | `promotion.created` | `events:promotions` | Tier 2 | Push notification - user can discover promotion later |
 | `promotion.updated` | `events:promotions` | Tier 2 | Cache invalidation - next fetch self-heals |
 | `product.created` | `events:products` | Tier 2 | Enrichment pipeline trigger |
-| `product.identified` | `events:identifications` | Tier 2 | ML output - missing identification caught on next pass |
+| `product.identified` | `events:products` | Tier 2 | Emitted by `promy-product` when a promotion is linked to a product - missing event caught on next pass |
 
 ### [WARNING] Rule: Tier 1 events must not use `PublishEvent()` (fire-and-forget)
 
@@ -1306,12 +1301,12 @@ Check before processing; skip (return nil) if already seen.
 
 ### Q: Can two services share a stream (multiple producers)?
 
-**No.** One stream, one owner. If `promy-identifier` and `promy-product` both need
+**No.** One stream, one owner. If `promy-product` and a hypothetical second service both need
 to publish product-related events, they each own their own stream:
 
 ```
-events:products        -> owned by promy-product    (product.created, product.updated)
-events:identifications -> owned by promy-identifier (product.identified)
+events:products   -> owned by promy-product        (product.created, product.identified)
+events:<domain>   -> owned by the second service   (hypothetical)
 ```
 
 Consumers subscribe to whichever streams they need independently.
