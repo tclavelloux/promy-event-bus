@@ -11,8 +11,10 @@ const (
 )
 
 // StreamDLQ is the dead-letter queue stream.
-// Unlike all other streams, StreamDLQ has no single owner — any service may
-// publish to it when a Tier 1 event handler exhausts its retries.
+// Unlike all other streams, StreamDLQ has no single owner. The subscriber
+// publishes a DLQEntry here after 3 failed attempts when
+// SubscriptionConfig.DLQPublisher is set (any tier); otherwise the event is
+// dropped. The message is ACKed either way.
 // Subscribers on StreamDLQ are ops tooling or automated replay workers.
 // Never publish business events directly to StreamDLQ; use it only as a failure sink.
 const StreamDLQ = "events:dlq"

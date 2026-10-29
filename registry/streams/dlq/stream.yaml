@@ -1,3 +1,3 @@
 stream: events:dlq
 owner: platform
-description: "Dead-letter queue for Tier 1 events that exhausted all retries. Any service may publish here on failure. Consumed by ops tooling and automated replay workers."
+description: "Dead-letter queue. The subscriber publishes a DLQEntry here after 3 failed attempts when SubscriptionConfig.DLQPublisher is set (any tier); otherwise the event is dropped. Consumed by ops tooling and automated replay workers."
