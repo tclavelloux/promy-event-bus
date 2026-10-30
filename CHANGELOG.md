@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.5.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.2...v0.5.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **registry:** move product.identified to events:products and drop events:identifications ([#73](https://github.com/tclavelloux/promy-event-bus/issues/73))
+
+### Features
+
+* **observability:** propagate W3C trace context through Redis Streams and log dropped messages ([#76](https://github.com/tclavelloux/promy-event-bus/issues/76)) ([c9ac810](https://github.com/tclavelloux/promy-event-bus/commit/c9ac810e357aa823850fafc3ed0a679941bcc271))
+* **subscriber:** report swallowed DLQ, requeue and ack errors through an optional callback ([#74](https://github.com/tclavelloux/promy-event-bus/issues/74)) ([ddcbe04](https://github.com/tclavelloux/promy-event-bus/commit/ddcbe043b78d584c68a153b6b2646582f44b909a))
+
+
+### Bug Fixes
+
+* **registry:** move product.identified to events:products and drop events:identifications ([#73](https://github.com/tclavelloux/promy-event-bus/issues/73)) ([4104238](https://github.com/tclavelloux/promy-event-bus/commit/410423842946898d4391f0ddb0b7cdbc6beb15c3))
+
+
+### Build System
+
+* **deps:** bump github.com/gabriel-vasile/mimetype from 1.4.15 to 1.4.16 in the gomod group across 1 directory ([#67](https://github.com/tclavelloux/promy-event-bus/issues/67)) ([3328eb7](https://github.com/tclavelloux/promy-event-bus/commit/3328eb76c6e83d073cde99630ed47063f2a18be5))
+
+
+### Documentation
+
+* align the DLQ contract and refresh README and HOWTO ([#72](https://github.com/tclavelloux/promy-event-bus/issues/72)) ([c231b9a](https://github.com/tclavelloux/promy-event-bus/commit/c231b9aa6b43f0e2eaeae4ab7d0547117d55769b))
+
+
+### Miscellaneous
+
+* **hooks:** bump governance hooks to v1.7.0 and go-test-coverage to v2.20.1 ([#70](https://github.com/tclavelloux/promy-event-bus/issues/70)) ([0f423bc](https://github.com/tclavelloux/promy-event-bus/commit/0f423bc8f3b18b1828d64b5da897e8b525b7f68c))
+* **hooks:** run each pre-commit hook once per commit ([#68](https://github.com/tclavelloux/promy-event-bus/issues/68)) ([56ad61a](https://github.com/tclavelloux/promy-event-bus/commit/56ad61a9d79d34f721c45d8c6fac40193c39b5ea))
+
 ## [0.4.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.1...v0.4.2) (2026-10-26)
 
 
