@@ -365,6 +365,20 @@ Start `promy-event-bus` first so the network exists:
 cd ../promy-event-bus && docker compose up -d
 ```
 
+The same stack runs the shared trace backend `promy-jaeger` (UI at http://localhost:16686). Point the service's dev tracer at it, gRPC on the container port 4317:
+
+```yaml
+# configs/config.dev.yaml
+modules:
+  trace:
+    processor:
+      type: otlp-grpc
+      options:
+        host: promy-jaeger:4317
+```
+
+Do not run a per-service Jaeger: one backend shows a producer → consumer trace in a single view.
+
 ---
 
 ## Event Criticality Tiers
@@ -1188,7 +1202,7 @@ make fmt               # go fmt
 make vet               # go vet
 make vuln              # govulncheck via the shared `go-vuln` hook (manual stage); same check as the CI `vuln` job
 make tidy              # go mod tidy
-make up                # start Redis + RedisInsight GUI at :5540 (docker-compose)
+make up                # start Redis, RedisInsight GUI at :5540 and Jaeger UI at :16686 (docker-compose)
 make down              # stop Redis
 make dlq-inspect       # show DLQ stats
 make dlq-replay        # replay DLQ entries (flags: see Dead-Letter Queue > Operator tooling)
