@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.0...v0.5.1) (2026-10-30)
+
+
+### Miscellaneous
+
+* **dev:** add the shared promy-jaeger trace backend ([#77](https://github.com/tclavelloux/promy-event-bus/issues/77)) ([d0efa21](https://github.com/tclavelloux/promy-event-bus/commit/d0efa21050447504a7d9f6acd2a074ff71482883))
+
 ## [0.5.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.2...v0.5.0) (2026-10-30)
 
 
