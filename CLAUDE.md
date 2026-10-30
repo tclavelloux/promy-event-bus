@@ -22,7 +22,7 @@ make lint                  # golangci-lint
 make fmt && make vet && make tidy
 
 # Infrastructure
-make up                    # start Redis (docker-compose)
+make up                    # start Redis, RedisInsight (:5540) and the shared Jaeger (:16686)
 make down                  # stop Redis
 
 # Run a single test

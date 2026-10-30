@@ -33,6 +33,18 @@ services:
       redis:
         condition: service_healthy
 
+  # Shared trace backend for every promy-* service, UI at http://localhost:16686.
+  # Services send OTLP/gRPC to `promy-jaeger:4317` over eventbus-network; the
+  # ingest ports (4317 gRPC, 4318 HTTP) stay unmapped because nothing on the
+  # host sends spans. In-memory storage: traces are lost on restart.
+  jaeger:
+    container_name: promy-jaeger
+    image: jaegertracing/jaeger:2.22.0
+    networks:
+      - eventbus-network
+    ports:
+      - "16686:16686"
+
 networks:
   eventbus-network:
     name: eventbus-network  # force exact name
