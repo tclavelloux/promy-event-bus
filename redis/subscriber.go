@@ -13,6 +13,10 @@ import (
 	"github.com/tclavelloux/promy-event-bus/streams"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -20,39 +24,40 @@ import (
 type Subscriber struct {
 	client *redis.Client
 	config eventbus.Config
+	obs    options
 }
 
-// NewSubscriber creates a new Redis subscriber.
-func NewSubscriber(config eventbus.Config) (*Subscriber, error) {
-	opts, err := redis.ParseURL(config.Redis.DSN)
+// NewSubscriber creates a new Redis subscriber. Options: WithLogger, WithTracerProvider.
+func NewSubscriber(config eventbus.Config, opts ...Option) (*Subscriber, error) {
+	redisOpts, err := redis.ParseURL(config.Redis.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Redis DSN: %w", err)
 	}
 
 	// Apply configuration
 	if config.Redis.PoolSize > 0 {
-		opts.PoolSize = config.Redis.PoolSize
+		redisOpts.PoolSize = config.Redis.PoolSize
 	}
 	if config.Redis.MaxRetries > 0 {
-		opts.MaxRetries = config.Redis.MaxRetries
+		redisOpts.MaxRetries = config.Redis.MaxRetries
 	}
 	if config.Redis.MinRetryBackoff > 0 {
-		opts.MinRetryBackoff = config.Redis.MinRetryBackoff
+		redisOpts.MinRetryBackoff = config.Redis.MinRetryBackoff
 	}
 	if config.Redis.MaxRetryBackoff > 0 {
-		opts.MaxRetryBackoff = config.Redis.MaxRetryBackoff
+		redisOpts.MaxRetryBackoff = config.Redis.MaxRetryBackoff
 	}
 	if config.Redis.DialTimeout > 0 {
-		opts.DialTimeout = config.Redis.DialTimeout
+		redisOpts.DialTimeout = config.Redis.DialTimeout
 	}
 	if config.Redis.ReadTimeout > 0 {
-		opts.ReadTimeout = config.Redis.ReadTimeout
+		redisOpts.ReadTimeout = config.Redis.ReadTimeout
 	}
 	if config.Redis.WriteTimeout > 0 {
-		opts.WriteTimeout = config.Redis.WriteTimeout
+		redisOpts.WriteTimeout = config.Redis.WriteTimeout
 	}
 
-	client := redis.NewClient(opts)
+	client := redis.NewClient(redisOpts)
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -65,6 +70,7 @@ func NewSubscriber(config eventbus.Config) (*Subscriber, error) {
 	return &Subscriber{
 		client: client,
 		config: config,
+		obs:    newOptions(opts),
 	}, nil
 }
 
@@ -141,19 +147,48 @@ func (s *Subscriber) Subscribe(ctx context.Context, subConfig eventbus.Subscript
 var errMissingMetadata = errors.New("metadata field missing or not a string")
 
 // reportError forwards e to config.OnError, filling the subscription identifiers.
+// Without OnError, the error is logged instead.
 func (s *Subscriber) reportError(ctx context.Context, config eventbus.SubscriptionConfig, e eventbus.SubscriberError) {
-	if config.OnError == nil {
-		return
-	}
-
 	e.Stream = config.Stream
 	e.ConsumerGroup = config.ConsumerGroup
 	e.ConsumerID = config.ConsumerID
+
+	if config.OnError == nil {
+		level := s.obs.logger.Error()
+		if e.Stage == eventbus.StageMetadataUnmarshal {
+			level = s.obs.logger.Warn() // malformed input dropped, not a subscriber fault
+		}
+
+		s.withFields(ctx, level, e).
+			Str("stage", string(e.Stage)).
+			Err(e.Err).
+			Msg("event bus subscriber swallowed error")
+
+		return
+	}
 
 	// A faulty observer must not kill the processing goroutine or skip the ACK.
 	defer func() { _ = recover() }()
 
 	config.OnError(ctx, e)
+}
+
+// withFields adds the subscription, message and trace identifiers of e to ev.
+func (s *Subscriber) withFields(ctx context.Context, ev *zerolog.Event, e eventbus.SubscriberError) *zerolog.Event {
+	ev = ev.
+		Str("stream", e.Stream).
+		Str("consumerGroup", e.ConsumerGroup).
+		Str("consumerId", e.ConsumerID).
+		Str("messageId", e.MessageID).
+		Str("eventId", e.EventID).
+		Str("eventType", e.EventType).
+		Int("attempt", e.Attempt)
+
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		ev = ev.Str("traceId", sc.TraceID().String()).Str("spanId", sc.SpanID().String())
+	}
+
+	return ev
 }
 
 // ack acknowledges msg and reports a failure to do so.
@@ -244,8 +279,15 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 		attempt = int(attemptVal)
 	}
 
+	id, _ := metadata["id"].(string)
+	eventType, _ := metadata["type"].(string)
+
+	// Join the producer trace; a message without trace context starts a new root.
+	spanCtx, span := s.startProcessSpan(ctx, config, metadata, id, eventType, attempt)
+	defer span.End()
+
 	// Create timeout context for processing
-	processCtx, cancel := context.WithTimeout(ctx, config.BlockDuration)
+	processCtx, cancel := context.WithTimeout(spanCtx, config.BlockDuration)
 	defer cancel()
 
 	// Call handler with raw event data
@@ -253,8 +295,6 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	// For MVP, we pass the raw event through the handler
 	// For now, we create a minimal event wrapper
 	// Services will need to deserialize based on event type
-	id, _ := metadata["id"].(string)
-	eventType, _ := metadata["type"].(string)
 	timestampStr, _ := metadata["timestamp"].(string)
 	payload, _ := msg.Values["payload"].(string)
 
@@ -266,14 +306,18 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 	}
 
 	if handlerErr := config.Handler(processCtx, event); handlerErr != nil {
+		failSpan(span, handlerErr)
+
 		// Handle retry logic
-		if attempt < 3 { // Max 3 attempts
+		switch {
+		case attempt < 3: // Max 3 attempts
 			time.Sleep(calculateBackoff(attempt))
-			s.requeue(ctx, config, msg, metadata, attempt, id, eventType)
-		} else if config.DLQPublisher != nil {
+			// The requeued metadata keeps the producer traceparent: attempts are siblings.
+			s.requeue(spanCtx, config, msg, metadata, attempt, id, eventType)
+		case config.DLQPublisher != nil:
 			dlqEntry := eventbus.NewDLQEntry(config.Stream, event, handlerErr, config.DLQService, attempt)
-			if err := config.DLQPublisher.Publish(ctx, streams.StreamDLQ, dlqEntry); err != nil {
-				s.reportError(ctx, config, eventbus.SubscriberError{
+			if err := config.DLQPublisher.Publish(spanCtx, streams.StreamDLQ, dlqEntry); err != nil {
+				s.reportError(spanCtx, config, eventbus.SubscriberError{
 					Stage:     eventbus.StageDLQPublish,
 					MessageID: msg.ID,
 					EventID:   id,
@@ -282,11 +326,63 @@ func (s *Subscriber) processMessage(ctx context.Context, config eventbus.Subscri
 					Err:       err,
 				})
 			}
+		default:
+			// Documented drop (not an OnError stage): always logged.
+			s.withFields(spanCtx, s.obs.logger.Warn(), eventbus.SubscriberError{
+				Stream:        config.Stream,
+				ConsumerGroup: config.ConsumerGroup,
+				ConsumerID:    config.ConsumerID,
+				MessageID:     msg.ID,
+				EventID:       id,
+				EventType:     eventType,
+				Attempt:       attempt,
+			}).Msg("event dropped after max attempts without dlq")
 		}
 	}
 
 	// Acknowledge in every outcome (success, retry requeued or lost, DLQ routed or dropped).
-	s.ack(ctx, config, msg, id, eventType, attempt)
+	s.ack(spanCtx, config, msg, id, eventType, attempt)
+}
+
+// startProcessSpan starts the consumer span of msg as a child of the producer span carried in metadata.
+// Without a valid traceparent the span is a new root, never a child of the Subscribe context's span.
+func (s *Subscriber) startProcessSpan(
+	ctx context.Context, config eventbus.SubscriptionConfig,
+	metadata map[string]any, eventID, eventType string, attempt int,
+) (context.Context, trace.Span) {
+	carrier := propagation.MapCarrier{}
+
+	for _, key := range []string{metaTraceparent, metaTracestate} {
+		if v, ok := metadata[key].(string); ok {
+			carrier[key] = v
+		}
+	}
+
+	// Extract into a clean context: the propagator returns ctx untouched when the carrier has no
+	// traceparent, which would leave the Subscribe context's span looking like a remote parent.
+	remote := trace.SpanContextFromContext(s.obs.propagator.Extract(context.Background(), carrier))
+	if remote.IsValid() {
+		ctx = trace.ContextWithRemoteSpanContext(ctx, remote)
+	}
+
+	startOpts := []trace.SpanStartOption{
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "redis"),
+			attribute.String("messaging.destination.name", config.Stream),
+			attribute.String("messaging.message.id", eventID),
+			attribute.String("messaging.consumer.group.name", config.ConsumerGroup),
+			attribute.String("messaging.operation.type", "process"),
+			attribute.String("eventbus.event.type", eventType),
+			attribute.Int("eventbus.attempt", attempt),
+		),
+	}
+
+	if !remote.IsValid() {
+		startOpts = append(startOpts, trace.WithNewRoot())
+	}
+
+	return s.obs.tracer.Start(ctx, config.Stream+".process", startOpts...)
 }
 
 // calculateBackoff calculates exponential backoff.

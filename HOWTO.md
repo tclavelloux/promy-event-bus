@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.8 - subscriber `OnError` callback (October 2026)
+> **Version**: 2.9 - trace propagation and subscriber logging (October 2026)
 >
 > **Changelog:**
+> - v2.9: publisher injects W3C `traceparent`/`tracestate` into metadata; subscriber starts a `<stream>.process` consumer span; `redis.WithLogger` / `redis.WithTracerProvider` options; logger is the default sink behind `OnError`
 > - v2.8: `SubscriptionConfig.OnError` reports errors the subscriber swallows (DLQ publish, retry requeue, ACK, metadata); delivery unchanged
 > - v2.7: `events:identifications` dropped; `promy-identifier` owns no stream until it publishes an event
 > - v2.6: `product.identified` moved from `events:identifications` to `events:products` (owner `promy-product`, Tier 2)
@@ -507,6 +508,26 @@ The subscriber handles these failures itself and returns no error for them. Set 
 - `SubscriberError` carries `Stage`, `Stream`, `ConsumerGroup`, `ConsumerID`, `MessageID`, `EventID`, `EventType`, `Attempt`, `Err`. `EventID`, `EventType` and `Attempt` are zero when metadata could not be decoded.
 - No-loss delivery (no ACK on failure plus a pending-reclaim loop) is not implemented: [#71](https://github.com/tclavelloux/promy-event-bus/issues/71).
 
+Logger as default sink (`redis.WithLogger`, subscriber only):
+
+- `OnError` nil: each swallowed error is logged. `Warn` for `metadata_unmarshal`, `Error` for every other stage.
+- `OnError` set: only the callback runs for that error. Nothing is logged: no double logging.
+- Fields: `stage`, `stream`, `consumerGroup`, `consumerId`, `messageId`, `eventId`, `eventType`, `attempt`, `error`, plus `traceId` / `spanId` when a consumer span exists.
+- Exhausted retries with `DLQPublisher == nil` is a documented drop, not an `OnError` stage. It is always logged at `Warn` (`event dropped after max attempts without dlq`), whatever `OnError` is.
+- Default logger is `zerolog.Nop()`: nothing is logged until you pass `WithLogger`.
+
+### Tracing
+
+- Publish: span `<stream>.publish` (producer) with `messaging.system`, `messaging.destination.name`, `messaging.message.id`, `messaging.operation.type=send`. `PublishBatch` starts one span per event.
+- The publisher injects `traceparent` / `tracestate` of the producer span into the message `metadata`. It uses `propagation.TraceContext{}`, not the global propagator.
+- Consume: span `<stream>.process` (consumer), child of the producer span. Extra attributes: `messaging.consumer.group.name`, `messaging.operation.type=process`, `eventbus.event.type`, `eventbus.attempt`.
+- The handler `ctx` carries the consumer span, so handler spans join the producer trace.
+- A message without a valid `traceparent` starts a new root trace, never a child of the Subscribe context's span.
+- Handler error: `RecordError` + `SetStatus(codes.Error)` on the consumer span.
+- Retries keep the original producer `traceparent`: every attempt is a sibling consumer span under the producer.
+- Unparseable metadata: no span, only the `OnError` report / log.
+- Provider: `redis.WithTracerProvider(tp)`, else the global `otel.GetTracerProvider()` captured at construction. Tracer name: `github.com/tclavelloux/promy-event-bus/redis`.
+
 ### Operator tooling
 
 ```bash
@@ -602,11 +623,12 @@ import (
     "github.com/ankorstore/yokai/log"
     eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
     "github.com/tclavelloux/promy-event-bus/redis"
+    oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // NewEventPublisher creates a publisher from configuration.
 // Returns nil if Redis DSN is empty (graceful degradation for test/dev environments).
-func NewEventPublisher(cfg *config.Config) eventbus.EventPublisher {
+func NewEventPublisher(cfg *config.Config, tp oteltrace.TracerProvider) eventbus.EventPublisher {
     dsn := cfg.GetString("modules.event_bus.redis.dsn")
     if dsn == "" {
         return nil
@@ -621,7 +643,7 @@ func NewEventPublisher(cfg *config.Config) eventbus.EventPublisher {
         DialTimeout:     cfg.GetDuration("modules.event_bus.redis.dial_timeout"),
         ReadTimeout:     cfg.GetDuration("modules.event_bus.redis.read_timeout"),
         WriteTimeout:    cfg.GetDuration("modules.event_bus.redis.write_timeout"),
-    })
+    }, redis.WithTracerProvider(tp))
     if err != nil {
         return nil
     }
@@ -761,13 +783,15 @@ package eventbus
 
 import (
     "github.com/ankorstore/yokai/config"
+    "github.com/ankorstore/yokai/log"
     eventbus "github.com/tclavelloux/promy-event-bus/eventbus"
     "github.com/tclavelloux/promy-event-bus/redis"
+    oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // NewEventSubscriber creates a subscriber from configuration.
 // Returns nil if Redis DSN is empty (graceful degradation).
-func NewEventSubscriber(cfg *config.Config) eventbus.EventSubscriber {
+func NewEventSubscriber(cfg *config.Config, logger *log.Logger, tp oteltrace.TracerProvider) eventbus.EventSubscriber {
     dsn := cfg.GetString("modules.event_bus.redis.dsn")
     if dsn == "" {
         return nil
@@ -788,7 +812,10 @@ func NewEventSubscriber(cfg *config.Config) eventbus.EventSubscriber {
             Group:      cfg.GetString("modules.event_bus.consumer.group"),
             ConsumerID: cfg.GetString("modules.event_bus.consumer.consumer_id"),
         },
-    })
+    },
+        redis.WithLogger(logger.ToZerolog()),
+        redis.WithTracerProvider(tp),
+    )
     if err != nil {
         return nil
     }

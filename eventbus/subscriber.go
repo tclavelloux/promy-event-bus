@@ -58,7 +58,9 @@ type SubscriptionConfig struct {
 	// OnError, if non-nil, is called synchronously from the processing goroutine whenever the subscriber
 	// swallows an error (see SubscriberErrorStage). It reports; it never changes delivery: the message is
 	// ACKed or left pending exactly as without it. Keep it cheap and non-blocking (log, increment a metric).
-	// It may run concurrently when MaxConcurrency > 1. ctx is the Subscribe context and may already be done.
+	// It may run concurrently when MaxConcurrency > 1. ctx derives from the Subscribe context (it may already
+	// be done) and carries the consumer span once the metadata decoded.
+	// When nil, the subscriber logs the error with its logger (redis.WithLogger) instead.
 	// A panic inside OnError is recovered and discarded. Handler errors are not reported here: the handler already has them.
 	OnError func(ctx context.Context, err SubscriberError)
 }

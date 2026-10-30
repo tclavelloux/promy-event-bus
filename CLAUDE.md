@@ -63,7 +63,7 @@ Subscribers receive a `rawEvent` wrapping Redis stream fields. They must type-sw
 
 ### Retry behaviour
 
-Max 3 attempts per message (backoff: 0 ms → 100 ms → 500 ms, capped at 10 s). After max retries the message is ACKed to prevent an infinite loop. If `SubscriptionConfig.DLQPublisher` is set, the subscriber first wraps the event in a `DLQEntry` ([`eventbus/dlq.go`](eventbus/dlq.go)) and publishes it to `streams.StreamDLQ`; if nil, the event is dropped. `SubscriptionConfig.OnError` reports swallowed errors (DLQ publish, requeue, ACK, metadata) without changing delivery. Inspect and replay with `make dlq-inspect` / `make dlq-replay` ([`cmd/dlq/`](cmd/dlq/)).
+Max 3 attempts per message (backoff: 0 ms → 100 ms → 500 ms, capped at 10 s). After max retries the message is ACKed to prevent an infinite loop. If `SubscriptionConfig.DLQPublisher` is set, the subscriber first wraps the event in a `DLQEntry` ([`eventbus/dlq.go`](eventbus/dlq.go)) and publishes it to `streams.StreamDLQ`; if nil, the event is dropped. `SubscriptionConfig.OnError` reports swallowed errors (DLQ publish, requeue, ACK, metadata) without changing delivery; when nil, the `redis.WithLogger` zerolog logger is the default sink. The publisher injects W3C `traceparent` into metadata and the subscriber starts a `<stream>.process` consumer span from it (`redis.WithTracerProvider`). Inspect and replay with `make dlq-inspect` / `make dlq-replay` ([`cmd/dlq/`](cmd/dlq/)).
 
 ### Adding a new event type
 
