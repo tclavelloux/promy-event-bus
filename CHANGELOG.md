@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.0...v0.5.1) (2026-10-31)
+
+
+### Build System
+
+* **deps:** follow governance hooks v1.9.0 (go-test-coverage 2.21.0) ([#81](https://github.com/tclavelloux/promy-event-bus/issues/81)) ([3b60d6a](https://github.com/tclavelloux/promy-event-bus/commit/3b60d6a80606540ba07b02f882b4cedb895c9836))
+
+
+### Miscellaneous
+
+* **claude:** enable promy plugin ([#80](https://github.com/tclavelloux/promy-event-bus/issues/80)) ([d4c5f6e](https://github.com/tclavelloux/promy-event-bus/commit/d4c5f6edce8efd0595329d40f42db15bf92bc30e))
+* **dev:** add the shared promy-jaeger trace backend ([#77](https://github.com/tclavelloux/promy-event-bus/issues/77)) ([d0efa21](https://github.com/tclavelloux/promy-event-bus/commit/d0efa21050447504a7d9f6acd2a074ff71482883))
+
 ## [0.5.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.2...v0.5.0) (2026-10-30)
 
 
