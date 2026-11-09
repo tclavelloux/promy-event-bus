@@ -3,7 +3,7 @@ module github.com/tclavelloux/promy-event-bus
 go 1.26.10
 
 require (
-	github.com/go-playground/validator/v10 v10.30.5
+	github.com/go-playground/validator/v10 v10.30.6
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/rs/zerolog v1.35.1
