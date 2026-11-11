@@ -25,6 +25,8 @@ go get github.com/tclavelloux/promy-event-bus
 - Subscribe — `EventSubscriber` with consumer groups, batch size, block duration, bounded concurrency
 - Retry — 3 attempts with exponential backoff
 - DLQ — exhausted events routed to `events:dlq` as `DLQEntry`; `cmd/dlq` inspects and replays
+- Observability — W3C trace context propagated through message metadata (`WithTracerProvider`); swallowed subscriber errors reported via `OnError` or logged (`WithLogger`)
+- Local dev stack — `make up` starts Redis, RedisInsight (`:5540`) and the shared `promy-jaeger` trace backend (`:16686`)
 - Event schema registry — YAML contracts under `registry/`, validated in CI
 - Test doubles — `testutil` (`MockPublisher`, `MockSubscriber`, `TestEvent`)
 
@@ -175,4 +177,4 @@ Full split: [HOWTO.md > Scope Split](HOWTO.md#scope-split).
 - [promy-identifier](https://github.com/tclavelloux/promy-identifier) — AI product identification service
 - [promy-crm](https://github.com/tclavelloux/promy-crm) — CRM service
 
-<!-- readme-updated-at: 0f423bc -->
+<!-- readme-updated-at: 008d220 -->
