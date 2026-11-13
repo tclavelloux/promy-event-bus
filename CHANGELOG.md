@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.5.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.0...v0.5.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** patch GO-2026-6859 ([#86](https://github.com/tclavelloux/promy-event-bus/issues/86)) ([f5920bc](https://github.com/tclavelloux/promy-event-bus/commit/f5920bcf04da57e4e9ec666db280e5901a4477c0))
+
+
+### Build System
+
+* **deps:** bump github.com/go-playground/validator/v10 from 10.30.5 to 10.30.6 in the gomod group ([#84](https://github.com/tclavelloux/promy-event-bus/issues/84)) ([008d220](https://github.com/tclavelloux/promy-event-bus/commit/008d220fe344513e690b5e7e63b20caba702836b))
+* **deps:** bump the gomod group with 3 updates ([#82](https://github.com/tclavelloux/promy-event-bus/issues/82)) ([bb15da8](https://github.com/tclavelloux/promy-event-bus/commit/bb15da8cc006e37be370d153dd654c1c4a800be7))
+* **deps:** follow governance hooks v1.9.0 (go-test-coverage 2.21.0) ([#81](https://github.com/tclavelloux/promy-event-bus/issues/81)) ([3b60d6a](https://github.com/tclavelloux/promy-event-bus/commit/3b60d6a80606540ba07b02f882b4cedb895c9836))
+
+
+### Documentation
+
+* **readme:** list observability and local Jaeger stack in Overview ([#85](https://github.com/tclavelloux/promy-event-bus/issues/85)) ([ce38173](https://github.com/tclavelloux/promy-event-bus/commit/ce381731ba0cfdfa14c57d622ed3821b9e949f6a))
+
+
+### Miscellaneous
+
+* **claude:** enable promy plugin ([#80](https://github.com/tclavelloux/promy-event-bus/issues/80)) ([d4c5f6e](https://github.com/tclavelloux/promy-event-bus/commit/d4c5f6edce8efd0595329d40f42db15bf92bc30e))
+* **dev:** add the shared promy-jaeger trace backend ([#77](https://github.com/tclavelloux/promy-event-bus/issues/77)) ([d0efa21](https://github.com/tclavelloux/promy-event-bus/commit/d0efa21050447504a7d9f6acd2a074ff71482883))
+
 ## [0.5.0](https://github.com/tclavelloux/promy-event-bus/compare/v0.4.2...v0.5.0) (2026-10-30)
 
 
