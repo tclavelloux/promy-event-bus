@@ -134,7 +134,6 @@ registry/streams/
     stream.yaml
     events/
       promotion.created.yaml
-      promotion.updated.yaml
   ...
 ```
 

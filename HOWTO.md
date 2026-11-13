@@ -79,7 +79,6 @@ promy-product/
     events/
       types.go
       promotion_created.go
-      promotion_updated.go
       product_created.go
 
 promy-subscription/
@@ -405,7 +404,6 @@ subscriber's failure handling.
 | `subscription.started` | `events:subscriptions` | **Tier 1** | Triggers access grant and welcome flow |
 | `subscription.cancelled` | `events:subscriptions` | **Tier 1** | Triggers access revocation |
 | `promotion.created` | `events:promotions` | Tier 2 | Push notification - user can discover promotion later |
-| `promotion.updated` | `events:promotions` | Tier 2 | Cache invalidation - next fetch self-heals |
 | `product.created` | `events:products` | Tier 2 | Enrichment pipeline trigger |
 | `product.identified` | `events:products` | Tier 2 | Emitted by `promy-product` when a promotion is linked to a product - missing event caught on next pass |
 
