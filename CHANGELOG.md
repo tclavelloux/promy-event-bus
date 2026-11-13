@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.1...v0.5.2) (2026-11-13)
+
+
+### Code Refactoring
+
+* **registry:** remove the unused promotion.updated event ([#87](https://github.com/tclavelloux/promy-event-bus/issues/87)) ([859eb84](https://github.com/tclavelloux/promy-event-bus/commit/859eb84eca7dc9fd0f88b7a2cd2bb57019eb3b42))
+
 ## [0.5.1](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.0...v0.5.1) (2026-11-11)
 
 
