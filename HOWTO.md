@@ -1232,8 +1232,8 @@ The Go hooks call [`scripts/golangci-lint.sh`](scripts/golangci-lint.sh) and [`s
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on `pull_request` to `main` (opened, synchronize, ready_for_review, reopened). Draft PRs skip every job. No `push: main` trigger.
 
-- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`). `lint` runs with `workflow-sync: true`: it fails when `.github/workflows/` drifts from the fleet copies.
-- `test`: `go test -race` against a Redis service container (`REDIS_TEST_DSN=redis://localhost:6379/15`); uploads the coverage profile.
+- `lint`, `vuln`: reusable workflows from `promy-github-workflows` (`go-lint/v1`, `go-vuln/v1`). `lint` runs with `workflow-sync: true` (fails when `.github/workflows/` drifts from the fleet copies) and `zizmor: true` (audits workflows; config in [`.github/zizmor.yml`](.github/zizmor.yml)).
+- `test`: reusable `go-test/v1` with `redis: true`: `go test -race` against a Redis container (`REDIS_TEST_DSN=redis://localhost:6379/15`); uploads the coverage profile.
 - `coverage`: reusable `go-coverage/v2`; needs `test`; thresholds from [`.testcoverage.yml`](.testcoverage.yml).
 - `gitleaks`: scans the PR commit range. No `docker` job: this is a library.
 - `automerge`: runs only for PRs from `dependabot[bot]` or `promy-fleet-bot[bot]`; needs every other job green.
