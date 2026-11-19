@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.3](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.2...v0.5.3) (2026-11-17)
+
+
+### Build System
+
+* **deps:** bump the gomod group with 4 updates ([#89](https://github.com/tclavelloux/promy-event-bus/issues/89)) ([cf5fb72](https://github.com/tclavelloux/promy-event-bus/commit/cf5fb720bd85b9dfcd745fcd584a797f1d15edae))
+
+
+### Continuous Integration
+
+* **workflow-sync:** adopt governance go-test, bump to hooks/v1.17.0, adopt zizmor and drop secrets: inherit ([#90](https://github.com/tclavelloux/promy-event-bus/issues/90)) ([a24f885](https://github.com/tclavelloux/promy-event-bus/commit/a24f885537893e8b8b9e0281f94687c0b7a6445a))
+* **workflow-sync:** bump governance to hooks/v1.18.0 and adopt the pre-commit hygiene hooks ([#92](https://github.com/tclavelloux/promy-event-bus/issues/92)) ([eae5e53](https://github.com/tclavelloux/promy-event-bus/commit/eae5e53f6f68fb0abb348293cc1d9670544328b8))
+
 ## [0.5.2](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.1...v0.5.2) (2026-11-13)
 
 
