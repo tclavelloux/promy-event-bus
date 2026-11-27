@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.4](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.3...v0.5.4) (2026-11-27)
+
+
+### Features
+
+* **streams:** add events:catalog-runs stream and catalog.run events ([#95](https://github.com/tclavelloux/promy-event-bus/issues/95)) ([3bd2b11](https://github.com/tclavelloux/promy-event-bus/commit/3bd2b11ac18bf5decfd5403573a5a5cd465a34d5))
+
 ## [0.5.3](https://github.com/tclavelloux/promy-event-bus/compare/v0.5.2...v0.5.3) (2026-11-17)
 
 
