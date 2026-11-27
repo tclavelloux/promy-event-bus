@@ -80,6 +80,7 @@ Stream constants live in [`streams/streams.go`](streams/streams.go); owners are 
 | `events:subscriptions` | promy-subscription | Subscription lifecycle events |
 | `events:promotions` | promy-product | Promotion events |
 | `events:products` | promy-product | Product catalogue events |
+| `events:catalog-runs` | promy-market-catalog | Catalog job run outcomes |
 | `events:dlq` | platform (multi-writer) | Dead-letter queue |
 
 - One stream, one owner: only the owner publishes business events to it.
