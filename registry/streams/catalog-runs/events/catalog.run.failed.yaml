@@ -1,0 +1,46 @@
+name: catalog.run.failed
+tier: 2
+description: "Fired by promy-market-catalog when a job run exits non-zero."
+fields:
+  run_id:
+    type: string
+    required: true
+    description: "Pipeline run identifier, shared by every job of one run (RUN_ID; defaults to the trace id)."
+  job:
+    type: string
+    required: true
+    description: "CLI step name of the job, e.g. parse-leaflet."
+  distributor:
+    type: string
+    required: false
+    description: "Distributor registry key the job ran for (e.g. Lidl, Auchan). Absent when unset."
+  exec_date:
+    type: string
+    required: false
+    description: "Execution date of the run (YYYY-MM-DD)."
+  exit_code:
+    type: number
+    required: true
+    description: "Process exit code of the job."
+  outcome:
+    type: string
+    required: true
+    description: "Always failed for this event."
+  counts:
+    type: object
+    required: true
+    description: "Summary-line counts of the job, key to integer (e.g. published, publish_failed). Empty object when the job logged none."
+  trace_id:
+    type: string
+    required: false
+    description: "W3C trace id (32 hex) of the job span. Absent when no trace context exists."
+example:
+  run_id: "0af7651916cd43dd8448eb211c80319c"
+  job: "identify-stores"
+  distributor: "Auchan"
+  exec_date: "2026-11-27"
+  exit_code: 1
+  outcome: "failed"
+  counts:
+    stores: 0
+  trace_id: "0af7651916cd43dd8448eb211c80319c"

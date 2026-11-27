@@ -1,8 +1,9 @@
 # HOWTO: Integrating promy-event-bus in a Yokai Service
 
-> **Version**: 2.9 - trace propagation and subscriber logging (October 2026)
+> **Version**: 2.10 - catalog run events (November 2026)
 >
 > **Changelog:**
+> - v2.10: `events:catalog-runs` registered (owner `promy-market-catalog`, Tier 2): `catalog.run.completed`, `catalog.run.failed`
 > - v2.9: publisher injects W3C `traceparent`/`tracestate` into metadata; subscriber starts a `<stream>.process` consumer span; `redis.WithLogger` / `redis.WithTracerProvider` options; logger is the default sink behind `OnError`
 > - v2.8: `SubscriptionConfig.OnError` reports errors the subscriber swallows (DLQ publish, retry requeue, ACK, metadata); delivery unchanged
 > - v2.7: `events:identifications` dropped; `promy-identifier` owns no stream until it publishes an event
@@ -122,6 +123,7 @@ is each consuming service's own concern - it is not tracked here.
 | `events:subscriptions` | `promy-subscription` | Tier 1 |
 | `events:promotions` | `promy-product` | Tier 2 |
 | `events:products` | `promy-product` | Tier 2 (`product.created`, `product.identified`) |
+| `events:catalog-runs` | `promy-market-catalog` | Tier 2 |
 | `events:dlq` | platform (subscriber failure path only) | n/a |
 
 **Rules:**
@@ -406,6 +408,8 @@ subscriber's failure handling.
 | `promotion.created` | `events:promotions` | Tier 2 | Push notification - user can discover promotion later |
 | `product.created` | `events:products` | Tier 2 | Enrichment pipeline trigger |
 | `product.identified` | `events:products` | Tier 2 | Emitted by `promy-product` when a promotion is linked to a product - missing event caught on next pass |
+| `catalog.run.completed` | `events:catalog-runs` | Tier 2 | Run analytics - loss acceptable; failure alerting does not depend on it |
+| `catalog.run.failed` | `events:catalog-runs` | Tier 2 | Run analytics - loss acceptable; failure alerting does not depend on it |
 
 ### [WARNING] Rule: Tier 1 events must not use `PublishEvent()` (fire-and-forget)
 

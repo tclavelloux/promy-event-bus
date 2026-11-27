@@ -1,0 +1,3 @@
+stream: events:catalog-runs
+owner: promy-market-catalog
+description: "Run outcomes of promy-market-catalog jobs (one event per job run)."

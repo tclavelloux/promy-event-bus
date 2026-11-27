@@ -1,0 +1,50 @@
+name: catalog.run.completed
+tier: 2
+description: "Fired by promy-market-catalog when a job run exits 0. Publish failures of publish-new-flyers show in counts (publish_failed, download_failed), not as a separate event."
+fields:
+  run_id:
+    type: string
+    required: true
+    description: "Pipeline run identifier, shared by every job of one run (RUN_ID; defaults to the trace id)."
+  job:
+    type: string
+    required: true
+    description: "CLI step name of the job, e.g. parse-leaflet."
+  distributor:
+    type: string
+    required: false
+    description: "Distributor registry key the job ran for (e.g. Lidl, Auchan). Absent when unset."
+  exec_date:
+    type: string
+    required: false
+    description: "Execution date of the run (YYYY-MM-DD)."
+  exit_code:
+    type: number
+    required: true
+    description: "Process exit code of the job."
+  outcome:
+    type: string
+    required: true
+    description: "ok, or degraded when some items failed while the job still exited 0."
+  counts:
+    type: object
+    required: true
+    description: "Summary-line counts of the job, key to integer (e.g. published, publish_failed). Empty object when the job logged none."
+  trace_id:
+    type: string
+    required: false
+    description: "W3C trace id (32 hex) of the job span. Absent when no trace context exists."
+example:
+  run_id: "4bf92f3577b34da6a3ce929d0e0e4736"
+  job: "publish-new-flyers"
+  distributor: "Lidl"
+  exec_date: "2026-11-27"
+  exit_code: 0
+  outcome: "degraded"
+  counts:
+    to_process: 3
+    published: 2
+    download_failed: 0
+    without_dates: 0
+    publish_failed: 1
+  trace_id: "4bf92f3577b34da6a3ce929d0e0e4736"

@@ -8,6 +8,7 @@ const (
 	StreamSubscriptions = "events:subscriptions"
 	StreamPromotions    = "events:promotions"
 	StreamProducts      = "events:products"
+	StreamCatalogRuns   = "events:catalog-runs"
 )
 
 // StreamDLQ is the dead-letter queue stream.
